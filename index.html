@@ -1297,6 +1297,14 @@ function initDetoxTab(){
 
 function hydrateStart(){
   loadAutos();
+
+  /* ⭐ Default decrement to 0.1 ml on first-ever load */
+  const dec = $('#decrementMl');
+  if (dec && localStorage.getItem('gs_decrementMl') === null) {
+    dec.value = '0.1';
+    saveAuto(dec);
+  }
+
   // default recommended path
   if(!localStorage.getItem('gsafe_rec_path')) localStorage.setItem('gsafe_rec_path','detox');
   // show version
