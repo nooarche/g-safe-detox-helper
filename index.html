@@ -58,7 +58,7 @@ label input[type="checkbox"], label input[type="radio"]{width:auto;margin-right:
 button, .btn, .tabbtn { pointer-events:auto; touch-action:manipulation; }
   
 /* Tabs */
-.tablist{display:flex;gap:8px;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;background:rgba(11,18,32,.9);backdrop-filter:blur(6px);padding:8px}
+.tablist{display:flex;gap:8px;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;background:rgba(11,18,32,.9);backdrop-filter:blur(6px);padding:8px}
 .tabbtn{appearance:none;border:1px solid var(--line);background:#0b1324;color:#cbd5e1;border-radius:999px;padding:8px 12px;cursor:pointer}
 .tabbtn[aria-selected="true"]{background:linear-gradient(90deg,#60a5fa,#3b82f6);color:#0b1220;border-color:transparent}
 .tabpanel{display:block}
@@ -478,21 +478,22 @@ document.addEventListener('DOMContentLoaded', ()=>{
 }, {once:true});
 document.addEventListener('DOMContentLoaded', ()=>{
   hydrateStart();
-  // Delay Detox init to end of event loop (iOS safety)
-  setTimeout(initDetoxTab, 0);
+  bindTabs();                    // wire tabs
+  setTimeout(initDetoxTab, 0);   // iOS: defer to end of event loop
   renderStabLog();
   selectTab('start');
 });
 
-/* Touch shim: translate touchend ➜ click for key UI */
+/* Touch shim: translate touchend ➜ click only if Pointer Events missing */
 (function addTouchClickShim(){
-  const needsShim = matchMedia('(pointer:coarse)').matches; // phones/tablets
+  const needsShim = matchMedia('(pointer:coarse)').matches;
   if(!needsShim) return;
+  const hasPointer = 'onpointerup' in window;
+  if(hasPointer) return;
 
   function tapToClick(e){
     const t = e.target.closest('.tabbtn, button, .btn');
     if(!t) return;
-    // Prevent ghost double clicks
     if(!t.__tapLock){
       t.__tapLock = true;
       t.click();
@@ -527,20 +528,56 @@ function saveAuto(el){
 
 /* ========= Tabs ========= */
 function selectTab(name){
+  // Buttons
   document.querySelectorAll('.tabbtn').forEach(btn=>{
     btn.setAttribute('aria-selected', btn.id===`tab-${name}` ? 'true' : 'false');
+    btn.tabIndex = (btn.id===`tab-${name}`) ? 0 : -1;
   });
-  document.querySelectorAll('.tabpanel').forEach(p=>{
-    p.setAttribute('aria-hidden', p.id!==`panel-${name}`);
+  function bindTabs(){
+  const isCoarse = window.matchMedia && matchMedia('(pointer:coarse)').matches;
+  document.querySelectorAll('.tabbtn').forEach(btn=>{
+    if(btn.dataset._wired) return;
+    btn.dataset._wired = '1';
+    const id = btn.id.replace('tab-','');
+
+    // Mouse/desktop
+    btn.addEventListener('click', ()=>selectTab(id));
+
+    // Touch-friendly: pointerup fires reliably on iOS
+    btn.addEventListener('pointerup', (e)=>{
+      if(isCoarse){
+        e.preventDefault();
+        selectTab(id);
+      }
+    });
+
+    // Keyboard
+    btn.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter' || e.key===' '){
+        e.preventDefault();
+        selectTab(id);
+      }
+    });
+
+    // ARIA (already present on markup, but safe to re-assert)
+    btn.setAttribute('role','tab');
+    btn.setAttribute('aria-controls', `panel-${id}`);
   });
-  const active = document.getElementById(`panel-${name}`);
-  if (active) active.scrollIntoView({behavior:'smooth', block:'start'});
 }
-document.addEventListener('click', (e)=>{
-  const b = e.target.closest('.tabbtn'); if(!b) return;
-  const id = b.id.replace('tab-','');
-  selectTab(id);
-});
+  // Panels
+  let any = false;
+  document.querySelectorAll('.tabpanel').forEach(p=>{
+    const show = (p.id===`panel-${name}`);
+    p.setAttribute('aria-hidden', show ? 'false' : 'true');
+    if(show) any = true;
+  });
+  // Scroll to the active panel
+  const active = document.getElementById(`panel-${name}`);
+  if(active) active.scrollIntoView({behavior:'smooth', block:'start'});
+  // If the requested panel isn't found, fall back to "start"
+  if(!any && name!=='start') selectTab('start');
+}
+
 
 /* ========= Quick screen (Start tab) ========= */
 function QC_eval(){
@@ -681,7 +718,6 @@ function explainDetoxType(){
   return;
 }
 
-function previewDetox(){
 function previewDetox(){
   const elDose = $('#startDose');
   const elInt  = $('#intervalHours');
@@ -1090,17 +1126,11 @@ window.__GS_TICK = setInterval(tickTimers, 1000);
 
 /* ========= Exporters ========= */
 function exportJSON(){
-const data = {
-  startDose: $('#startDose')?.value ?? '',
-  intervalHours: $('#intervalHours')?.value ?? '',
-  decrementMl: $('#decrementMl')?.value ?? '',
-  decrementEvery: $('#decrementEvery')?.value ?? '',
-  steps: window._plan?.steps || [],
-  doseLog: { detox: loadDoseLog('detox'), stabilise: loadDoseLog('stab') }
-};    startDose: $('#startDose').value,
-    intervalHours: $('#intervalHours').value,
-    decrementMl: $('#decrementMl').value,
-    decrementEvery: $('#decrementEvery').value,
+  const data = {
+    startDose: $('#startDose')?.value ?? '',
+    intervalHours: $('#intervalHours')?.value ?? '',
+    decrementMl: $('#decrementMl')?.value ?? '',
+    decrementEvery: $('#decrementEvery')?.value ?? '',
     steps: window._plan?.steps || [],
     doseLog: { detox: loadDoseLog('detox'), stabilise: loadDoseLog('stab') }
   };
@@ -1236,14 +1266,7 @@ function hydrateStart(){
   const v = $('#appVersion'); if(v) v.textContent = APP_VERSION;
 }
 
-document.addEventListener('DOMContentLoaded', ()=>{
-  hydrateStart();
-  initDetoxTab();
-  // initial stabilise log render
-  renderStabLog();
-  // default tab
-  selectTab('start');
-});
+
 
 /* Helper to create buttons quickly */
 function mkBtn(label, onclick){
