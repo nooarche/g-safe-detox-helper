@@ -730,6 +730,14 @@ function explainDetoxType(){
   return;
 }
 
+// Safe numeric parse: handles "0,1", trims, strips units
+function parseNum(v, d=0){
+  if(v==null) return d;
+  const s = String(v).trim().replace(',', '.').replace(/[^0-9.\-]/g, '');
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : d;
+}
+
 function previewDetox(){
   const elDose = $('#startDose');
   const elInt  = $('#intervalHours');
@@ -737,23 +745,26 @@ function previewDetox(){
   const elEvery= $('#decrementEvery');
   const out    = $('#detox_preview');
 
-  // If inputs aren't in the DOM yet, bail safely
-  if(!elDose || !elInt || !elDec || !elEvery || !out){
-    return;
-  }
+  if(!elDose || !elInt || !elDec || !elEvery || !out){ return; }
 
-  const dose = parseFloat(elDose.value||'0');
-  const intervalH = parseFloat(elInt.value||'0');
-  const decMl = parseFloat(elDec.value||'0.1');
-  const decEverySel = elEvery.value;
-  const decHours = parseDecEveryToHours(decEverySel);
-  const type = document.querySelector('input[name="detoxType"]:checked')?.value || 'short_taper';
+  let dose       = parseNum(elDose.value, 0);
+  let intervalH  = parseNum(elInt.value, 0);
+  let decMl      = parseNum(elDec.value, 0.1);
+  const decHours = parseDecEveryToHours(elEvery.value);
+  const type     = document.querySelector('input[name="detoxType"]:checked')?.value || 'short_taper';
 
-  if(dose<=0 || intervalH<=0){ out.textContent='Enter starting dose & interval.'; return; }
-  // (rest of function unchanged)
+  // Guards & normalisation
+  if(dose <= 0 || intervalH <= 0){ out.textContent='Enter starting dose & interval.'; return; }
+  decMl = Math.max(0.05, Math.min(dose, decMl)); // at least 0.05 ml, not more than the start dose
+
+  // Normalise the field visually after edits (nice on iPhone)
+  elDec.value = decMl.toFixed(1);
 
   const steps = buildPlanSteps(dose, intervalH, decMl, decHours);
   window._plan = { steps };
+
+  if(!steps.length){ out.textContent='Decrement produced an empty plan. Increase starting dose or decrease step size.'; return; }
+
   const last = steps[steps.length-1];
   const lenDays = Math.max(1, Math.round((new Date(last.end) - new Date(steps[0].start))/86400000)+1);
   const vols = calcVolumes(steps, intervalH);
@@ -766,25 +777,31 @@ function previewDetox(){
   lines.push(`Decrement: –${decMl.toFixed(1)} ml every ${decHours} h`);
   lines.push(`Estimate if dosing hourly: ${vols.totalMax.toFixed(1)} ml`);
   lines.push(`Estimate at plan interval: ${vols.totalPred.toFixed(1)} ml`);
-  $('#detox_preview').textContent = lines.join('\n');
+  out.textContent = lines.join('\n');
 
-  // Update "currently" banner
   updateTodayBadge(steps, intervalH);
 }
 
 function buildPlanSteps(dose, intervalH, decMl, decHours){
-  // Build descending steps until dose reaches 0
   const start = new Date();
   const steps = [];
   let curDose = dose;
   let t = new Date(start);
   const oneH = 60*60*1000;
-  while(curDose>0){
+
+  // Safety: if decMl is zero or negative, bail to avoid infinite loop
+  if(!(decMl > 0)) return steps;
+
+  while(curDose > 0){
     const end = new Date(t.getTime() + decHours*oneH);
-    steps.push({start: new Date(t), end: end, ml: parseFloat(curDose.toFixed(1))});
-    curDose = Math.max(0, +(curDose - decMl).toFixed(1));
+    steps.push({ start: new Date(t), end, ml: +curDose.toFixed(1) });
+
+    // Float-safe decrement to 1 decimal place
+    const next = Math.round((curDose - decMl) * 10) / 10;
+    curDose = Math.max(0, next);
+
     t = end;
-    if(steps.length>2000) break; // guard
+    if(steps.length > 2000) break;
   }
   return steps;
 }
@@ -1252,19 +1269,27 @@ function $(id){ return document.getElementById(id); }
 
 /* ========= Init ========= */
 function initDetoxTab(){
-  // wire autosave+preview on inputs
   ['availableMl','startDose','intervalHours','decrementMl','decrementEvery'].forEach(id=>{
     const el = $('#'+id); if(!el) return;
     if(el.dataset._wired) return; el.dataset._wired='1';
-    el.addEventListener('input', ()=>{ previewDetox(); });
-    el.addEventListener('change', ()=>{ previewDetox(); });
+
+    el.addEventListener('input',  previewDetox);
+    el.addEventListener('change', previewDetox);
+
+    if(id === 'decrementMl'){
+      el.addEventListener('blur', ()=>{
+        const v = Math.max(0.05, Math.min(parseNum(el.value, 0.1), 10));
+        el.value = v.toFixed(1);
+        previewDetox();
+        saveAuto(el);
+      });
+    }
     if(id==='decrementEvery'){
-      el.addEventListener('input', autoSwitchUltrarapidIfNeeded);
+      el.addEventListener('input',  autoSwitchUltrarapidIfNeeded);
       el.addEventListener('change', autoSwitchUltrarapidIfNeeded);
     }
   });
   autoSwitchUltrarapidIfNeeded();
-  // Only preview if the fields exist
   if ($('#startDose') && $('#intervalHours') && $('#decrementMl') && $('#decrementEvery')) {
     previewDetox();
   }
