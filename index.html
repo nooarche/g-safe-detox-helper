@@ -55,6 +55,8 @@ input:not([type="checkbox"]):not([type="radio"]), select, textarea{
 input:focus,select:focus,textarea:focus{outline:0; box-shadow:0 0 0 2px rgba(96,165,250,.35)}
 label input[type="checkbox"], label input[type="radio"]{width:auto;margin-right:6px;vertical-align:middle}
 
+button, .btn, .tabbtn { pointer-events:auto; touch-action:manipulation; }
+  
 /* Tabs */
 .tablist{display:flex;gap:8px;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;background:rgba(11,18,32,.9);backdrop-filter:blur(6px);padding:8px}
 .tabbtn{appearance:none;border:1px solid var(--line);background:#0b1324;color:#cbd5e1;border-radius:999px;padding:8px 12px;cursor:pointer}
@@ -124,7 +126,7 @@ label input[type="checkbox"], label input[type="radio"]{width:auto;margin-right:
 }
 
 /* Hidden by default; only visible during print or when exportPDF opens a new window */
-#printCover, #printCal { display:none; }
+/* Hidden on screen; never intercept taps */ #printCover, #printCal { display:none; position:static; pointer-events:none; }
 </style>
 </head>
 
@@ -469,6 +471,36 @@ label input[type="checkbox"], label input[type="radio"]{width:auto;margin-right:
 /* ========= Version & storage ========= */
 const APP_VERSION = "v3.1-mobile";
 
+/* Force all <button> to be type=button (iOS safety) */
+document.addEventListener('DOMContentLoaded', ()=>{
+  document.querySelectorAll('button').forEach(b=>{
+    if(!b.getAttribute('type')) b.setAttribute('type','button');
+  });
+}, {once:true});
+
+
+/* Touch shim: translate touchend ➜ click for key UI */
+(function addTouchClickShim(){
+  const needsShim = matchMedia('(pointer:coarse)').matches; // phones/tablets
+  if(!needsShim) return;
+
+  function tapToClick(e){
+    const t = e.target.closest('.tabbtn, button, .btn');
+    if(!t) return;
+    // Prevent ghost double clicks
+    if(!t.__tapLock){
+      t.__tapLock = true;
+      t.click();
+      setTimeout(()=>{ t.__tapLock = false; }, 300);
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+  document.addEventListener('touchend', tapToClick, {passive:false});
+})();
+  
+  
+  
 /* Autosave helpers (Start tab quick screen + general inputs use data-autosave) */
 function loadAutos(){
   document.querySelectorAll('[data-autosave]').forEach(el=>{
@@ -1187,6 +1219,19 @@ document.addEventListener('DOMContentLoaded', ()=>{
 function mkBtn(label, onclick){
   const b = document.createElement('button'); b.className='btn'; b.textContent=label; b.onclick=onclick; return b;
 }
+
+/* Minimal error toast for mobile debugging */
+(function(){
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:9999;background:#3b0a0a;color:#fecaca;border:1px solid #7f1d1d;border-radius:10px;padding:8px;display:none;white-space:pre-wrap';
+  document.body.appendChild(toast);
+  window.addEventListener('error', (e)=>{
+    toast.textContent = 'Error: ' + (e.message || 'unknown');
+    toast.style.display = 'block';
+  });
+})();
+  
+  
 </script>
 </body>
 </html>  
