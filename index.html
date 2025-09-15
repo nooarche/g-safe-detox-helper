@@ -198,6 +198,14 @@ button, .btn, .tabbtn { pointer-events:auto; touch-action:manipulation; }
       </div>
       <div id="qc_result" class="codebox" aria-live="polite" style="margin-top:8px"></div>
     </div>
+    <div class="card" style="margin-top:12px">
+  <h3 style="margin:0 0 6px">Data &amp; privacy</h3>
+  <p class="muted">This app only stores data locally in this browser. You can erase it at any time.</p>
+  <div class="row">
+    <button class="btn warn" onclick="clearAllSavedData()">Clear all saved data on this device</button>
+    <span id="clear_status" class="muted" aria-live="polite"></span>
+  </div>
+</div>
   </section>
   <!-- RECOGNISE panel -->
   <section id="panel-recognise" class="tabpanel" role="tabpanel" aria-labelledby="tab-recognise" aria-hidden="true">
@@ -1311,7 +1319,66 @@ function hydrateStart(){
   const v = $('#appVersion'); if(v) v.textContent = APP_VERSION;
 }
 
+function clearAllSavedData(){
+  // Double-confirm (mobile friendly)
+  if(!confirm('This will erase all G-Safe data on this device (plans, logs, saved answers). Continue?')) return;
+  if(!confirm('Are you absolutely sure? This cannot be undone.')) return;
 
+  // Remove our keys from localStorage
+  try{
+    const toRemove = [];
+    for(let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      if(k && (k.startsWith('gs_') || k.startsWith('gsafe_'))) toRemove.push(k);
+    }
+    toRemove.forEach(k=>localStorage.removeItem(k));
+  }catch(e){ /* ignore quota/permission issues */ }
+
+  // In-memory reset
+  window._plan = { steps: [] };
+
+  // Clear dose logs explicitly (also ensures UI resets)
+  saveDoseLog('detox', []);
+  saveDoseLog('stab',  []);
+
+  // Reset form fields (safe even if some are missing)
+  [
+    'availableMl','startDose','intervalHours','decrementMl','decrementEvery',
+    'stab_recent_ml','stab_short_gap','stab_long_gap','stab_dose','stab_interval','stab_baseline',
+    'q_usual_ml','q_gap_hours','q_span_hours','q_days_cont','q_night_only','q_severe_wd',
+    'qc_often','qc_night','qc_withdrawal','qc_freq','qc_severe',
+    'qt_daynight','qt_binge','qt_weeks','qt_gap','qt_mix','qt_severe',
+    'symptom_score'
+  ].forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    if(el.type==='checkbox' || el.type==='radio'){ el.checked = false; }
+    else if(el.tagName==='SELECT'){ el.selectedIndex = 0; }
+    else el.value = '';
+  });
+
+  // Clear text outputs & calendar
+  ['qc_status','qc_result','qt_status','qt_result','sa_summary','sa_next',
+   'stab_suggest_out','stab_save_status','stab_log','detox_today','detox_preview',
+   'symptom_log','symptom_note','printSummary'
+  ].forEach(id=>{ const n=$(id); if(n) n.textContent='—'; });
+  const cal = $('#calendar');     if(cal) cal.innerHTML='';
+  const printCal = $('#printCal'); if(printCal) printCal.innerHTML='';
+
+  // Rehydrate defaults (includes setting decrement to 0.1 on first load)
+  hydrateStart();
+  initDetoxTab();
+  renderStabLog();
+  previewDetox();
+  updateDetoxTimer();
+  updateStabTimer();
+
+  const status = $('#clear_status');
+  if(status){ status.textContent = 'All local data cleared.'; setTimeout(()=>status.textContent='', 4000); }
+
+  alert('All local G-Safe data has been cleared on this browser.');
+  selectTab('start');
+}
 
 /* Helper to create buttons quickly */
 function mkBtn(label, onclick){
