@@ -477,7 +477,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(!b.getAttribute('type')) b.setAttribute('type','button');
   });
 }, {once:true});
-
+document.addEventListener('DOMContentLoaded', ()=>{
+  hydrateStart();
+  // Delay Detox init to end of event loop (iOS safety)
+  setTimeout(initDetoxTab, 0);
+  renderStabLog();
+  selectTab('start');
+});
 
 /* Touch shim: translate touchend ➜ click for key UI */
 (function addTouchClickShim(){
@@ -677,14 +683,27 @@ function explainDetoxType(){
 }
 
 function previewDetox(){
-  const dose = parseFloat($('#startDose').value||'0');
-  const intervalH = parseFloat($('#intervalHours').value||'0');
-  const decMl = parseFloat($('#decrementMl').value||'0.1');
-  const decEverySel = $('#decrementEvery').value;
+function previewDetox(){
+  const elDose = $('#startDose');
+  const elInt  = $('#intervalHours');
+  const elDec  = $('#decrementMl');
+  const elEvery= $('#decrementEvery');
+  const out    = $('#detox_preview');
+
+  // If inputs aren't in the DOM yet, bail safely
+  if(!elDose || !elInt || !elDec || !elEvery || !out){
+    return;
+  }
+
+  const dose = parseFloat(elDose.value||'0');
+  const intervalH = parseFloat(elInt.value||'0');
+  const decMl = parseFloat(elDec.value||'0.1');
+  const decEverySel = elEvery.value;
   const decHours = parseDecEveryToHours(decEverySel);
   const type = document.querySelector('input[name="detoxType"]:checked')?.value || 'short_taper';
 
-  if(dose<=0 || intervalH<=0){ $('#detox_preview').textContent='Enter starting dose & interval.'; return; }
+  if(dose<=0 || intervalH<=0){ out.textContent='Enter starting dose & interval.'; return; }
+  // (rest of function unchanged)
 
   const steps = buildPlanSteps(dose, intervalH, decMl, decHours);
   window._plan = { steps };
@@ -740,6 +759,7 @@ function updateTodayBadge(steps, intervalH){
   const now = new Date();
   const today = steps.find(s=> now>=new Date(s.start) && now<new Date(s.end));
   const el = $('#detox_today');
+if(!el) return;
   if(today){
     el.textContent = `Currently: ${today.ml.toFixed(1)} ml every ${intervalH} h`;
   }else{
@@ -751,7 +771,9 @@ function updateTodayBadge(steps, intervalH){
 const CAL_INITIAL_HOUR_PX = 28;
 
 function createDetoxSchedule(){
+  if(!window._plan?.steps?.length) { return; }
   if(!window._plan || !window._plan.steps){ previewDetox(); }
+
   const steps = (window._plan?.steps)||[];
   const intervalH = parseFloat($('#intervalHours').value||'0');
   const cal = $('#calendar'); cal.innerHTML='';
@@ -1069,8 +1091,14 @@ window.__GS_TICK = setInterval(tickTimers, 1000);
 
 /* ========= Exporters ========= */
 function exportJSON(){
-  const data = {
-    startDose: $('#startDose').value,
+const data = {
+  startDose: $('#startDose')?.value ?? '',
+  intervalHours: $('#intervalHours')?.value ?? '',
+  decrementMl: $('#decrementMl')?.value ?? '',
+  decrementEvery: $('#decrementEvery')?.value ?? '',
+  steps: window._plan?.steps || [],
+  doseLog: { detox: loadDoseLog('detox'), stabilise: loadDoseLog('stab') }
+};    startDose: $('#startDose').value,
     intervalHours: $('#intervalHours').value,
     decrementMl: $('#decrementMl').value,
     decrementEvery: $('#decrementEvery').value,
@@ -1195,7 +1223,10 @@ function initDetoxTab(){
     }
   });
   autoSwitchUltrarapidIfNeeded();
-  previewDetox();
+  // Only preview if the fields exist
+  if ($('#startDose') && $('#intervalHours') && $('#decrementMl') && $('#decrementEvery')) {
+    previewDetox();
+  }
 }
 
 function hydrateStart(){
