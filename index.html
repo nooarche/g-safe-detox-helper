@@ -58,8 +58,13 @@ label input[type="checkbox"], label input[type="radio"]{width:auto;margin-right:
 button, .btn, .tabbtn { pointer-events:auto; touch-action:manipulation; }
   
 /* Tabs */
-.tablist{display:flex;gap:8px;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;background:rgba(11,18,32,.9);backdrop-filter:blur(6px);padding:8px}
-.tabbtn{appearance:none;border:1px solid var(--line);background:#0b1324;color:#cbd5e1;border-radius:999px;padding:8px 12px;cursor:pointer}
+.tablist{
+  display:flex;gap:8px;border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:20;
+  background:rgba(11,18,32,.9);backdrop-filter:blur(6px);padding:8px;
+  -webkit-backdrop-filter: blur(6px); /* iOS */
+  -webkit-tap-highlight-color: transparent; /* iOS touch polish */
+}.tabbtn{appearance:none;border:1px solid var(--line);background:#0b1324;color:#cbd5e1;border-radius:999px;padding:8px 12px;cursor:pointer}
 .tabbtn[aria-selected="true"]{background:linear-gradient(90deg,#60a5fa,#3b82f6);color:#0b1220;border-color:transparent}
 .tabpanel{display:block}
 .tabpanel[aria-hidden="true"]{display:none}
@@ -469,7 +474,7 @@ button, .btn, .tabbtn { pointer-events:auto; touch-action:manipulation; }
 </main>
 <script>
 /* ========= Version & storage ========= */
-const APP_VERSION = "v3.1.2-mobile";
+const APP_VERSION = "v3.1.1-mobile";
 /* Force all <button> to be type=button (iOS safety) */
 document.addEventListener('DOMContentLoaded', ()=>{
   document.querySelectorAll('button').forEach(b=>{
@@ -526,24 +531,20 @@ function saveAuto(el){
   try{ localStorage.setItem(key, v); }catch{}
 }
 
-/* ========= Tabs ========= */
-function selectTab(name){
-  // Buttons
-  document.querySelectorAll('.tabbtn').forEach(btn=>{
-    btn.setAttribute('aria-selected', btn.id===`tab-${name}` ? 'true' : 'false');
-    btn.tabIndex = (btn.id===`tab-${name}`) ? 0 : -1;
-  });
-  function bindTabs(){
+
+function bindTabs(){
   const isCoarse = window.matchMedia && matchMedia('(pointer:coarse)').matches;
+
   document.querySelectorAll('.tabbtn').forEach(btn=>{
     if(btn.dataset._wired) return;
     btn.dataset._wired = '1';
+
     const id = btn.id.replace('tab-','');
 
-    // Mouse/desktop
+    // Mouse / desktop
     btn.addEventListener('click', ()=>selectTab(id));
 
-    // Touch-friendly: pointerup fires reliably on iOS
+    // Touch: pointerup is reliable on iOS; prevent ghost clicks
     btn.addEventListener('pointerup', (e)=>{
       if(isCoarse){
         e.preventDefault();
@@ -559,23 +560,34 @@ function selectTab(name){
       }
     });
 
-    // ARIA (already present on markup, but safe to re-assert)
+    // ARIA (belt & braces)
     btn.setAttribute('role','tab');
     btn.setAttribute('aria-controls', `panel-${id}`);
   });
 }
+
+/* ========= Tabs ========= */
+function selectTab(name){
+  // Buttons
+  document.querySelectorAll('.tabbtn').forEach(btn=>{
+    btn.setAttribute('aria-selected', btn.id===`tab-${name}` ? 'true' : 'false');
+    btn.tabIndex = (btn.id===`tab-${name}`) ? 0 : -1;
+  });
+
   // Panels
-  let any = false;
+  let found = false;
   document.querySelectorAll('.tabpanel').forEach(p=>{
     const show = (p.id===`panel-${name}`);
     p.setAttribute('aria-hidden', show ? 'false' : 'true');
-    if(show) any = true;
+    if(show) found = true;
   });
-  // Scroll to the active panel
+
+  // Scroll to the active panel (iOS-friendly)
   const active = document.getElementById(`panel-${name}`);
-  if(active) active.scrollIntoView({behavior:'smooth', block:'start'});
-  // If the requested panel isn't found, fall back to "start"
-  if(!any && name!=='start') selectTab('start');
+  if(active){ active.scrollIntoView({behavior:'smooth', block:'start'}); }
+
+  // Fallback
+  if(!found && name!=='start') selectTab('start');
 }
 
 
