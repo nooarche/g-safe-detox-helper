@@ -1,0 +1,1600 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>G-Safe Detox Helper (v3)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="application-version" content="v3.0.0-alpha1">
+<style>
+:root{
+  --bg:#0a0f1a; --card:#0b1220; --text:#e5e7eb; --muted:#94a3b8;
+  --line:#1f2937; --accent:#60a5fa; --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+  --hourpx:28px; /* calendar hour row height */
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif}
+h1,h2,h3{margin:.4em 0}
+.container{max-width:1024px;margin:20px auto;padding:0 14px}
+header{padding:16px 14px 0}
+.pill{display:inline-block;background:#111827;border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--muted)}
+.badge{display:inline-block;border-radius:6px;padding:3px 8px;font-size:12px}
+.badge.good{background:rgba(34,197,94,.15);border:1px solid var(--good)}
+.badge.warn{background:rgba(245,158,11,.15);border:1px solid var(--warn)}
+.badge.bad{background:rgba(239,68,68,.15);border:1px solid var(--bad)}
+.kicker{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.mono{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace}
+.codebox{white-space:pre-wrap;border:1px solid var(--line);border-radius:8px;padding:10px;background:#0b1220}
+
+.tabs .tablist{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.tabbtn{background:#0b1220;border:1px solid var(--line);color:var(--text);padding:8px 12px;border-radius:8px;cursor:pointer}
+.tabbtn[aria-selected="true"]{border-color:var(--accent);box-shadow:0 0 0 2px rgba(96,165,250,.2) inset}
+.tabpanel{display:block}
+.tabpanel[aria-hidden="true"]{display:none}
+
+.grid{display:grid;gap:10px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.flex{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+.card{border:1px solid var(--line);border-radius:12px;padding:14px;background:#0b1220}
+.tile{border:1px dashed var(--line);border-radius:10px;padding:10px}
+label{display:block}
+input,select,textarea,button{font:inherit;color:inherit}
+/* Textual controls get full width; checkboxes/radios don’t */
+input:not([type="checkbox"]):not([type="radio"]), select, textarea{
+  width:100%;
+  padding:8px;
+  border-radius:8px;
+  border:1px solid var(--line);
+  background:#0a1020;
+}
+
+/* Keep choice controls compact & aligned with their labels */
+label input[type="checkbox"],
+label input[type="radio"]{
+  width:auto;
+  margin-right:6px;
+  vertical-align:middle;
+}
+button{border:1px solid var(--line);background:#0b1220;border-radius:8px;padding:8px 12px;cursor:pointer}
+button.ghost{background:transparent}
+button:focus{outline:2px solid var(--accent);outline-offset:1px}
+
+/* Calendar (v3 time grid) */
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.day{border:1px solid var(--line);border-radius:10px;padding:10px;background:#0b1220;position:relative}
+.day h4{margin:0 0 6px;font-size:12px;color:#9ca3af}
+.dayGrid{display:grid;grid-template-columns:48px 1fr;gap:8px}
+.timecol{font-size:11px;color:#64748b;position:relative}
+.timecol .tick{
+  height:var(--hourpx);
+  line-height:var(--hourpx);
+  border-top:1px dashed #1f2937;
+}
+.daybody{
+  position:relative;border:1px solid #1f2937;border-radius:8px;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.03) 0 calc(var(--hourpx) - 1px),
+    rgba(255,255,255,0.07) calc(var(--hourpx) - 1px) var(--hourpx)
+  );
+}
+.segBlock{position:absolute;left:6px;right:6px;border-radius:6px;background:rgba(96,165,250,.18);border:1px solid #60a5fa;font-size:12px;padding:4px 6px;overflow:hidden}
+.doseMark{position:absolute;left:0;right:0;height:2px;opacity:.95}
+.doseMark.green{background:#22c55e}.doseMark.orange{background:#f59e0b}.doseMark.red{background:#ef4444}
+.nowline{position:absolute;left:0;right:0;height:2px;background:#60a5fa;box-shadow:0 0 4px #60a5fa}
+.doseLog{font-size:12px;margin-top:6px;border-top:1px solid var(--line);padding-top:6px;white-space:pre-wrap}
+
+.dock{position:sticky;bottom:0;background:#0b1220;border-top:1px solid var(--line);padding:10px;border-radius:10px 10px 0 0;margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn-timer.red{background:#ef4444;color:#0b1120}
+.btn-timer.orange{background:#f59e0b;color:#0b1120}
+.btn-timer.green{background:#22c55e;color:#0b1120}
+
+/* Sparkline */
+#doseSpark{width:480px;height:64px;border:1px solid var(--line);border-radius:8px;background:#0b1220}
+.spark-caption{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+
+/* Feedback panel */
+.feedback{border-left:4px solid #334155;padding:10px;background:#0b1220;border-radius:8px}
+.sticky-safety{margin-top:10px;border:1px solid var(--line);border-radius:8px;padding:10px;background:#0b1220}
+
+
+
+
+/* === Print styles (A4 landscape, paginated by week) === */
+@media print {
+  @page { size: A4 landscape; margin: 10mm; }
+
+  :root { --hourpx:24px; } /* slightly tighter hour rows for paper */
+  
+  /* Hide the entire app UI */
+  header, .tabs, #calendarWrap, .sticky-safety, #servicesDrawer, #dosePicker { 
+    display: none !important; 
+  }
+
+  /* Show only print containers */
+  #printCover, #printCal { display: block !important; }
+
+  /* Cover page prints first by DOM order */
+  #printCover { page-break-after: always; }
+
+  /* One week per page */
+  .weekPrint { page-break-after: always; break-after: page; }
+
+  /* Print typography & tighter blocks */
+  body{ font: 12px/1.35 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+  .day h4{ font-size: 10px; }
+  .segBlock{ font-size: 10px; padding: 3px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* We render a separate print calendar, so no need to style .cal here */
+}
+
+/* Hidden by default; shown only for printing */
+#printCover, #printCal { display: none; }
+
+
+
+
+</style>
+</head>
+<body>
+<header class="container">
+  <h1>G-Safe Detox Helper <span class="pill" id="appVersion">v3.0.0-alpha1</span></h1>
+</header>
+
+<div class="container">
+  <div class="tabs" id="appTabs">
+    <div class="tablist" role="tablist" aria-label="Sections">
+      <button class="tabbtn" role="tab" id="tab-start" aria-controls="panel-start" aria-selected="true">Start</button>
+      <button class="tabbtn" role="tab" id="tab-recognise" aria-controls="panel-recognise" aria-selected="false">Recognise</button>
+      <button class="tabbtn" role="tab" id="tab-stabilise" aria-controls="panel-stabilise" aria-selected="false">Stabilise</button>
+      <button class="tabbtn" role="tab" id="tab-detox" aria-controls="panel-detox" aria-selected="false">Detox plan</button>
+      <button class="tabbtn" role="tab" id="tab-symptoms" aria-controls="panel-symptoms" aria-selected="false">Symptoms</button>
+      <button class="tabbtn" role="tab" id="tab-tech" aria-controls="panel-tech" aria-selected="false">Tech notes</button>
+    </div>
+
+    <!-- START -->
+    <section id="panel-start" class="tabpanel" role="tabpanel" aria-labelledby="tab-start" aria-hidden="false">
+      <section class="card">
+        <div class="kicker">Start here</div>
+        <h2>About this Start tab</h2>
+        <p>This tab explains <b>G / GBL</b> basics and how to use the helper. Read this first.</p>
+        <ul>
+          <li><b>Recognise:</b> dependence & risk checklist → suggests stabilise vs taper.</li>
+          <li><b>Stabilise:</b> set a safe fixed dose & interval with live logging.</li>
+          <li><b>Detox plan:</b> build a taper schedule with calendar/export.</li>
+          <li><b>Symptoms:</b> quick check-ins to guide speed.</li>
+          <li><b>Tech notes:</b> the maths used.</li>
+        </ul>
+
+        <div class="grid-2">
+          <div class="tile">
+            <h3>1) Signs of dependency</h3>
+            <ul><li>Hourly dosing / hard to delay</li><li>≥5 days/week use</li><li>Tolerance rising</li><li>Withdrawal if delayed</li></ul>
+          </div>
+          <div class="tile">
+            <h3>2) Overdose (“going under”)</h3>
+            <ul><li>Very drowsy, slow breathing</li><li>Recovery position, don’t leave alone</li><li>Call <b>112/999</b> (Ireland)</li></ul>
+          </div>
+          <div class="tile">
+            <h3>3) Withdrawal</h3>
+            <p><b>Common:</b> tremor, sweating, nausea, anxiety, insomnia. <b>Danger:</b> confusion/paranoia/fits → urgent care.</p>
+          </div>
+          <div class="tile">
+            <h3>4) Local help (Dublin/Ireland)</h3>
+            <div id="servicesInline" class="mono" style="white-space:pre-wrap;"></div>
+            <p class="muted"><a href="#" onclick="openServices();return false;">Open full services list →</a></p>
+          </div>
+
+          <!-- Quick dependence check -->
+          <div class="tile">
+            <h3>5) Quick check</h3>
+            <label><input type="checkbox" data-autosave id="qc_often"> I dose most days or struggle to delay</label>
+            <label><input type="checkbox" data-autosave id="qc_night"> I wake at night to dose</label>
+            <label><input type="checkbox" data-autosave id="qc_withdrawal"> I feel unwell if I delay</label>
+            <label><input type="checkbox" data-autosave id="qc_freq"> I’m ≥5×/day or ≤3h apart</label>
+            <label><input type="checkbox" data-autosave id="qc_severe"> I’ve had confusion/paranoia/fits</label>
+            <div class="row" style="margin-top:8px;">
+              <button type="button" onclick="QC_eval()">Run quick screen</button>
+              <span id="qc_status" class="pill" aria-live="polite"></span>
+            </div>
+            <div id="qc_result" class="card" style="margin-top:10px;background:#0b1220;"></div>
+          </div>
+
+          <div class="tile" id="prep">
+            <h3>6) What you’ll need</h3>
+            <ul>
+              <li>Enough G for your taper (planner shows hourly & plan-interval estimates)</li>
+              <li>Glass storage; labelled, child-proof</li>
+              <li>1&nbsp;ml oral syringe (0.1&nbsp;ml marks)</li>
+              <li>Alarm/timers; plan & emergency numbers</li>
+              <li>Support person on call</li>
+              <li>Fluids & easy foods</li>
+              <li>Coping tools (breathing 4-2-6(–8), grounding)</li>
+            </ul>
+            <div class="linkbar">
+              <a href="#detox" data-tablink="detox">Plan your taper →</a>
+              <a href="#symptom-check" data-tablink="symptoms">Save symptoms →</a>
+            </div>
+            <p class="muted small">Never mix with alcohol/benzos. Keep ≥1h between intakes. Severe symptoms ⇒ emergency.</p>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <!-- RECOGNISE -->
+    <section id="panel-recognise" class="tabpanel" role="tabpanel" aria-labelledby="tab-recognise" aria-hidden="true">
+      <section class="card">
+        <div class="kicker">Screening</div>
+        <h2>Recognise — risk & pathfinder</h2>
+        <p class="muted">Quick triage or detailed checklist. Analysis suggests stabilise vs taper. Informational only.</p>
+
+        <details id="qtCard">
+          <summary><b>Quick triage (optional)</b></summary>
+          <div class="grid" style="margin-top:10px;gap:12px">
+            <label>Pattern
+              <select id="qt_pattern" data-autosave>
+                <option value="">— choose —</option>
+                <option value="night_only">Night-only, long daytime gaps</option>
+                <option value="intermittent_binge">Intermittent heavy (2–5 days 24/7)</option>
+                <option value="few_weeks">Most days for days–weeks</option>
+                <option value="chronic_heavy">Heavy day+night for weeks–months</option>
+              </select>
+            </label>
+            <label>Shortest gap (h)
+              <select id="qt_gap" data-autosave>
+                <option value="">—</option><option value="1">≤1</option><option value="1.5">1.5</option><option value="2">2</option><option value="3">3</option><option value="5">5</option><option value="8">≥8</option>
+              </select>
+            </label>
+            <label>Night dosing?
+              <select id="qt_night" data-autosave><option value="">—</option><option value="yes">Yes</option><option value="no">No</option></select>
+            </label>
+            <label>Severe withdrawal ever?
+              <select id="qt_severe" data-autosave><option value="">—</option><option value="yes">Yes</option><option value="no">No</option></select>
+            </label>
+            <label>Also dependent on alcohol/benzos?
+              <select id="qt_poly" data-autosave><option value="">—</option><option value="yes">Yes</option><option value="no">No</option></select>
+            </label>
+            <label>Duration of near-daily use
+              <select id="qt_duration" data-autosave>
+                <option value="">—</option><option value="2d">2–3 days</option><option value="1w">~1 week</option><option value="2-4w">2–4 weeks</option><option value=">1m">&gt;1 month</option><option value=">6m">&gt;6 months</option>
+              </select>
+            </label>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button type="button" onclick="QT_analyse()">Quick analyse</button>
+            <button type="button" class="ghost" onclick="QT_prefillChecklist()">Apply to checklist</button>
+            <button type="button" class="ghost" onclick="QT_applyToPlan()">Apply to plan</button>
+            <span id="qtStatus" class="pill" aria-live="polite"></span>
+          </div>
+          <div id="qtResult" class="card" style="margin-top:10px;background:#0b1220"></div>
+        </details>
+
+        <hr>
+
+        <h2>GBL Dependence Self-Assessment (Detailed)</h2>
+        <h3>Section 1 – Usage Patterns</h3>
+        <div class="grid" style="grid-template-columns:1fr;gap:12px;">
+          <label>1) Times per day
+            <input type="number" id="q_times_day" min="0" step="1" placeholder="e.g., 16" data-autosave>
+          </label>
+          <label>2) Usual dose per use (ml)
+            <input type="number" id="q_usual_ml" min="0" step="0.1" placeholder="e.g., 2.1" data-autosave>
+          </label>
+          <label>3) Usual gap between doses (h)
+            <input type="number" id="q_gap_hours" min="0" step="0.1" placeholder="e.g., 1.0" data-autosave>
+          </label>
+          <label>4) Longest gap (h) (e.g., sleep)
+            <input type="number" id="q_long_gap_hours" min="0" step="0.1" placeholder="e.g., 6–8" data-autosave>
+          </label>
+          <label>5) Estimated daily intake (ml)
+            <div class="row">
+              <input type="number" id="q_est_daily_ml" min="0" step="0.1" placeholder="You can type or click Calculate" data-autosave>
+              <button type="button" class="ghost" onclick="SA_calcDaily()">Calculate</button>
+            </div>
+          </label>
+          <fieldset style="border:1px solid var(--line);border-radius:8px;padding:10px">
+            <legend>6) Duration of near-daily use</legend>
+            <div class="grid" style="grid-template-columns:1fr 1fr;gap:8px;">
+              <label><input type="radio" name="q_duration" value="1d" data-autosave> 1 day</label>
+              <label><input type="radio" name="q_duration" value="2d" data-autosave> 2 days</label>
+              <label><input type="radio" name="q_duration" value="3dr" data-autosave> 3 days in a row</label>
+              <label><input type="radio" name="q_duration" value="1w" data-autosave> 1 week</label>
+              <label><input type="radio" name="q_duration" value="2-4w" data-autosave> 2–4 weeks</label>
+              <label><input type="radio" name="q_duration" value=">1m" data-autosave> >1 month</label>
+              <label><input type="radio" name="q_duration" value=">6m" data-autosave> >6 months</label>
+            </div>
+          </fieldset>
+          <label>7) Tolerance increasing?
+            <select id="q_tolerance_yes" data-autosave><option value="no">No</option><option value="yes">Yes</option></select>
+          </label>
+        </div>
+
+        <h3 style="margin-top:16px">Section 2 – Withdrawal</h3>
+        <div class="grid" style="grid-template-columns:1fr;gap:12px;">
+          <label>8) Feel unwell if you delay?
+            <select id="q_wd_unwell" data-autosave><option value="no">No</option><option value="yes">Yes</option></select>
+          </label>
+          <label>9) Ever had severe symptoms (confusion/paranoia/fits)?
+            <select id="q_wd_severe" data-autosave><option value="no">No</option><option value="yes">Yes</option></select>
+          </label>
+          <label>10) WD onset after last dose (min/hours)?
+            <input type="text" id="q_wd_onset" placeholder="e.g., 60–90 minutes" data-autosave>
+          </label>
+          <label>11) WD duration (hours/days)?
+            <input type="text" id="q_wd_duration" placeholder="e.g., several hours; until next dose" data-autosave>
+          </label>
+        </div>
+
+        <h3 style="margin-top:16px">Section 3 – Dependence behaviours</h3>
+        <div class="grid" style="grid-template-columns:1fr;gap:12px;">
+          <label>12) Taking mainly to feel normal (not high)?
+            <select id="q_maintain" data-autosave><option value="no">No</option><option value="yes">Yes</option></select>
+          </label>
+          <label>13) Anxious about stock?
+            <select id="q_stock_anxiety" data-autosave><option value="no">No</option><option value="yes">Yes</option></select>
+          </label>
+          <label>14) Wake at night to dose?
+            <select id="q_night_dose" data-autosave><option value="no">No</option><option value="yes">Yes</option></select>
+          </label>
+        </div>
+
+        <h3 style="margin-top:16px">Section 4 – Other risks</h3>
+        <div class="grid" style="grid-template-columns:1fr;gap:12px;">
+          <label>15) Also dependent on alcohol/benzos/other sedatives?
+            <select id="q_polydep" data-autosave><option value="no">No</option><option value="yes">Yes</option></select>
+          </label>
+          <label>16) Serious medical conditions?
+            <select id="q_medical" data-autosave><option value="no">No</option><option value="yes">Yes</option></select>
+          </label>
+          <label>17) Past confusion/hallucinations/seizure during WD?
+            <select id="q_prev_complications" data-autosave><option value="no">No</option><option value="yes">Yes</option></select>
+          </label>
+        </div>
+
+        <div class="row" style="margin-top:14px;">
+          <button type="button" onclick="SA_analyse()">Analyse risk</button>
+          <span id="saStatus" class="pill" aria-live="polite"></span>
+        </div>
+        <div id="saSummary" class="card" style="margin-top:12px;background:#0b1220;"></div>
+        <div id="saActions" class="card" style="margin-top:12px; display:none; background:#0b1220;"></div>
+        <div id="saNext"    class="card" style="margin-top:12px; display:none; background:#0b1220;"></div>
+      </section>
+    </section>
+
+    <!-- STABILISE -->
+    <section id="panel-stabilise" class="tabpanel" role="tabpanel" aria-labelledby="tab-stabilise" aria-hidden="true">
+      <section class="card">
+        <div class="kicker">Stabilise</div>
+        <h2>Set a steady dose & interval (then hold)</h2>
+
+        <div class="feedback" id="stabFeedback"></div>
+
+        <div class="tile">
+          <h3>Quick setup</h3>
+          <div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">
+            <label>Usual dose per intake (ml)
+              <input type="number" id="usualDose" step="0.1" min="0" value="2.0" data-autosave>
+            </label>
+            <label>Lowest dose that avoids WD (ml)
+              <input type="number" id="lowestNoWD" step="0.1" min="0" value="1.8" data-autosave>
+            </label>
+            <label>“Never sends me under” (ml, optional)
+              <input type="number" id="neverUnder" step="0.1" min="0" placeholder="optional" data-autosave>
+            </label>
+            <label>Target interval
+              <select id="preferredInterval" data-autosave>
+                <option value="1">1.0 h</option><option value="1.5">1.5 h</option>
+                <option value="2" selected>2.0 h</option><option value="3">3.0 h</option>
+              </select>
+            </label>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button onclick="computeStabilisation()">Suggest a starting plan</button>
+            <span id="stabResult" class="pill" aria-live="polite"></span>
+          </div>
+          <div id="stabSaved" class="muted" style="margin-top:6px;"></div>
+        </div>
+
+        <div class="tile">
+          <h3>Active stabilisation</h3>
+          <p class="muted">Log each intake; the helper watches for early redosing/WD and suggests small adjustments.</p>
+          <div class="row">
+            <button id="stabLogBtn" class="btn-timer red" onclick="stabLogDose()">Log a stabilisation dose • <span id="stabTimerTxt">—</span></button>
+            <button class="ghost" onclick="clearStabLog()">Clear log</button>
+            <span id="stabLogStatus" class="pill" aria-live="polite"></span>
+          </div>
+          <div style="margin-top:10px">
+            <canvas id="doseSpark" width="480" height="64"></canvas>
+            <div class="spark-caption">
+              <small class="muted">Doses/day (last 14)</small>
+              <small id="sparkStats" class="muted"></small>
+            </div>
+          </div>
+          <div id="stabAdvice" class="card" style="background:#0b1220;margin-top:10px"></div>
+        </div>
+      </section>
+    </section>
+        <!-- DETOX -->
+    <section id="panel-detox" class="tabpanel" role="tabpanel" aria-labelledby="tab-detox" aria-hidden="true">
+      <section class="card">
+        <div class="kicker">Planner</div>
+        <h2>Detox plan & calendar</h2>
+
+        <div id="detoxEntryBanner" class="feedback" style="margin-bottom:10px">
+          <span class="badge good">Welcome</span> We’ll use your stabilised or suggested starting point. You can adjust below.
+        </div>
+
+        <div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">
+          <fieldset class="tile" style="margin:0">
+            <legend><b>Detox type</b></legend>
+            <label><input type="radio" name="detoxType" value="stabilise_taper" data-autosave checked> Stabilise → slow taper</label>
+            <label><input type="radio" name="detoxType" value="short_taper" data-autosave> Short taper (few days)</label>
+            <label><input type="radio" name="detoxType" value="ultrarapid" data-autosave> Ultrarapid (1 day)</label>
+            <div id="clarifyWrap" class="card" style="margin-top:8px;display:none;background:#0b1220">
+              <div id="clarifyFields"></div>
+            </div>
+          </fieldset>
+
+          <div class="tile">
+            <h3>Start values</h3>
+            <label>Starting dose (ml)
+              <input type="number" id="startDose" min="0" step="0.1" value="2.0" data-autosave>
+            </label>
+            <label>Dose interval (hours)
+              <select id="intervalHours" data-autosave>
+                <option value="1">1</option>
+                <option value="1.5">1.5</option>
+                <option value="2" selected>2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+              </select>
+            </label>
+            <label>Decrease per step (ml)
+              <input type="number" id="decrementMl" min="0.1" step="0.1" value="0.2" data-autosave>
+            </label>
+            <label>Dose taken reduces
+              <select id="decrementEvery" data-autosave>
+                <option value="1h">every 1 hour</option>
+                <option value="2h">every 2 hours</option>
+                <option value="3h">every 3 hours</option>
+                <option value="6h">every 6 hours</option>
+                <option value="12h">every 12 hours</option>
+                <option value="24h" selected>every 24 hours</option>
+               <option value="48h">every 48 hours</option>
+             </select>
+            </label>
+            <label>Start date &amp; time
+              <input type="datetime-local" id="startDT" data-autosave>
+            </label>
+            <div class="row" style="margin-top:8px">
+              <button type="button" onclick="previewDetox()">Preview schedule</button>
+              <button type="button" class="ghost" onclick="createDetoxSchedule()">Create detox calendar</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="planMsg" class="muted" style="margin-top:8px"></div>
+
+        <div id="scheduleSummary" class="card" style="margin-top:10px;background:#0b1220"></div>
+        <div id="detoxFeedback" class="feedback" style="margin-top:10px; display:none"></div>
+
+        <div class="tile" style="margin-top:10px">
+          <h3>Available supply</h3>
+          <div class="row">
+            <label style="min-width:220px">You have (ml)
+              <input type="number" id="availableMl" step="0.1" min="0" placeholder="e.g., 50.0" data-autosave>
+            </label>
+            <span id="supplySummary" class="pill"></span>
+          </div>
+        </div>
+
+        <div id="calendarWrap" class="card" style="display:none;margin-top:12px;background:#0b1220">
+          <div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div class="row">
+              <span id="currentDoseInfo" class="pill">Currently: —</span>
+              <span id="nowClock" class="pill" aria-live="polite"></span>
+            </div>
+            <div class="row">
+              <!-- “14-day view” toggle & zoom slider are inserted by script -->
+            </div>
+          </div>
+
+          <div id="detoxCal" class="cal"></div>
+
+          <div class="dock">
+            <button id="doseBtn" class="btn-timer red" onclick="logDoseNow()">
+              <span id="doseBtnText">Log a dose</span> • <span id="timerTxt">—</span> <span class="muted">since last dose</span>
+            </button>
+            <button id="dosePickBtn" class="btn-timer red" onclick="openDosePicker()">Log a different dose</button>
+            <button class="ghost" onclick="selectTab('symptoms')">Open symptom check-in</button>
+            <span class="muted">Red: &lt;60 min • Orange: before your interval • Green: interval reached</span>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <button onclick="downloadICS()">Download .ics</button>
+            <button class="ghost" onclick="exportPDF()">Print / Save PDF summary</button>
+            <button class="ghost" onclick="v3_exportBundle()">Export .zip (plan + logs)</button>
+          </div>
+        </div>
+
+<!-- Print-only views -->
+
+
+        <div class="sticky-safety">
+          <b>Safety notes:</b> Don’t mix with alcohol/benzos. Keep ≥1h between doses. If confusion, paranoia, fits, or collapse → <b>112/999</b>.
+        </div>
+      </section>
+    </section>
+
+    <!-- SYMPTOMS -->
+    <section id="panel-symptoms" class="tabpanel" role="tabpanel" aria-labelledby="tab-symptoms" aria-hidden="true">
+      <section class="card">
+        <div class="kicker">Check in</div>
+        <h2>Withdrawal symptom check-in</h2>
+        <p class="muted">Use this to track how you feel. If scores rise while tapering, consider slowing the taper and using coping tools. Severe symptoms ⇒ medical help.</p>
+
+        <form id="symptomForm" class="grid" style="grid-template-columns:1fr 1fr;gap:12px" onsubmit="return false;">
+          <label>Tremor
+            <input type="range" name="tremor" min="0" max="10" step="1" value="0" oninput="SymptomCheck.updateLabel(this)">
+            <span class="small muted">Score: <span class="sc-val" data-for="tremor">0</span></span>
+          </label>
+          <label>Anxiety
+            <input type="range" name="anxiety" min="0" max="10" step="1" value="0" oninput="SymptomCheck.updateLabel(this)">
+            <span class="small muted">Score: <span class="sc-val" data-for="anxiety">0</span></span>
+          </label>
+          <label>Sweats
+            <input type="range" name="sweats" min="0" max="10" step="1" value="0" oninput="SymptomCheck.updateLabel(this)">
+            <span class="small muted">Score: <span class="sc-val" data-for="sweats">0</span></span>
+          </label>
+          <label>Nausea
+            <input type="range" name="nausea" min="0" max="10" step="1" value="0" oninput="SymptomCheck.updateLabel(this)">
+            <span class="small muted">Score: <span class="sc-val" data-for="nausea">0</span></span>
+          </label>
+          <label>Insomnia
+            <input type="range" name="insomnia" min="0" max="10" step="1" value="0" oninput="SymptomCheck.updateLabel(this)">
+            <span class="small muted">Score: <span class="sc-val" data-for="insomnia">0</span></span>
+          </label>
+          <label>Restlessness
+            <input type="range" name="restless" min="0" max="10" step="1" value="0" oninput="SymptomCheck.updateLabel(this)">
+            <span class="small muted">Score: <span class="sc-val" data-for="restless">0</span></span>
+          </label>
+          <label>Low mood
+            <input type="range" name="lowmood" min="0" max="10" step="1" value="0" oninput="SymptomCheck.updateLabel(this)">
+            <span class="small muted">Score: <span class="sc-val" data-for="lowmood">0</span></span>
+          </label>
+          <label>Craving
+            <input type="range" name="craving" min="0" max="10" step="1" value="0" oninput="SymptomCheck.updateLabel(this)">
+            <span class="small muted">Score: <span class="sc-val" data-for="craving">0</span></span>
+          </label>
+          <label>Confusion
+            <input type="range" name="confusion" min="0" max="10" step="1" value="0" oninput="SymptomCheck.updateLabel(this)">
+            <span class="small muted">Score: <span class="sc-val" data-for="confusion">0</span></span>
+          </label>
+          <label>Paranoia
+            <input type="range" name="paranoia" min="0" max="10" step="1" value="0" oninput="SymptomCheck.updateLabel(this)">
+            <span class="small muted">Score: <span class="sc-val" data-for="paranoia">0</span></span>
+          </label>
+          <label>Seizure (any)
+            <select name="seizure" onchange="SymptomCheck.updateLabel(this)">
+              <option value="no">No</option><option value="yes">Yes</option>
+            </select>
+            <span class="small muted">Logged</span>
+          </label>
+        </form>
+        <div class="row" style="margin-top:10px">
+          <button onclick="SymptomCheck.submit()">Save check-in</button>
+          <button class="ghost" onclick="SymptomCheck.exportJSON()">Export JSON</button>
+          <span id="scStatus" class="pill" aria-live="polite"></span>
+        </div>
+        <div id="scTable" class="codebox" style="margin-top:10px;min-height:60px"></div>
+      </section>
+    </section>
+
+    <!-- TECH NOTES -->
+    <section id="panel-tech" class="tabpanel" role="tabpanel" aria-labelledby="tab-tech" aria-hidden="true">
+      <section class="card">
+        <div class="kicker">Details</div>
+        <h2>Tech notes</h2>
+        <div id="techNotes" class="codebox"></div>
+      </section>
+    </section>
+
+  </div> <!-- /tabs -->
+</div> <!-- /container -->
+
+<!-- Drawers / Modals -->
+
+<!-- Services drawer -->
+<div id="servicesDrawer" class="drawer" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6)" onclick="closeServices(event)">
+  <div class="drawer-inner" style="position:absolute;right:0;top:0;bottom:0;width:420px;max-width:95vw;background:#0b1220;border-left:1px solid var(--line);padding:16px;overflow:auto">
+    <div class="row" style="justify-content:space-between">
+      <h3>Local services (Ireland)</h3>
+      <button class="ghost" onclick="closeServices()">Close</button>
+    </div>
+    <div id="servicesList" class="mono" style="white-space:pre-wrap"></div>
+  </div>
+</div>
+
+<!-- Dose picker -->
+<div id="dosePicker" class="drawer" onclick="closeDosePicker(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6)">
+  <div class="drawer-inner" style="position:absolute;right:0;top:0;bottom:0;width:420px;max-width:95vw;background:#0b1220;border-left:1px solid var(--line);padding:16px;overflow:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3>Choose a dose</h3>
+      <button class="ghost" onclick="closeDosePicker();return false;">Close</button>
+    </div>
+    <p class="muted" id="dosePickerHint"></p>
+    <div id="dosePickerGrid" class="grid" style="grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px"></div>
+  </div>
+  
+
+  
+  
+</div>
+
+  <!-- Print-only views (outside app tabs so they become page 1 in print) -->
+<div id="printCover" class="card" style="display:none; margin:12px auto; max-width:1024px;">
+  <h2>G-Safe Detox — Plan Summary</h2>
+  <div id="printSummary" class="mono" style="white-space:pre-wrap"></div>
+  <div class="feedback" style="margin-top:8px">
+    <b>Safety:</b> Don’t mix with alcohol/benzos. Keep ≥1h between doses. If confusion, paranoia, fits, or collapse → <b>112/999</b>.
+  </div>
+</div>
+
+<div id="printCal" style="display:none; margin:12px auto; max-width:1024px;"></div>
+
+<script>
+/* ===== App meta (v3 scaffold) ===== */
+const APP_VERSION = 'v3.0.0-alpha1';
+
+/* ===== Namespaced storage keys (v3) ===== */
+const K_AUTOSAVE = 'gsafe_autosave_v3';
+const DIRTY_KEY  = 'gsafe_dirty_fields_v3';
+const STAB_KEY   = 'gsafe_stabilised_v3';
+const STAB_LOG   = 'gsafe_stab_log_v3';
+const DOSE_LOG_KEY = 'gsafe_dose_log_v3';
+const SYMPTOM_KEY  = 'gsafe_symptoms_v3';
+
+/* ===== v3 Feature flags ===== */
+const F_CALENDAR_ZOOM  = true;
+const CAL_INITIAL_HOUR_PX = 28;
+const F_FEEDBACK_PANEL = true;
+const F_EXPORT_BUNDLE  = true;
+const F_A11Y_SHORTCUTS = true;
+const F_PWA_SCAFFOLD   = false;
+const ULTRARAPID_DISABLED = false;
+
+/* ===== Services (IE) ===== */
+const SERVICES_IE = {
+  emergency: "112 / 999",
+  helpline: { name: "HSE Drugs & Alcohol Helpline", phone: "1800 459 459" },
+  web: "https://www.hse.ie/eng/services/list/5/addiction"
+};
+
+/* ===== Dirty tracking & autosave ===== */
+function markDirty(id){ try{
+  const d=JSON.parse(localStorage.getItem(DIRTY_KEY)||'{}'); d[id]=true; localStorage.setItem(DIRTY_KEY,JSON.stringify(d));
+}catch{}}
+function isDirty(id){ try{ const d=JSON.parse(localStorage.getItem(DIRTY_KEY)||'{}'); return !!d[id]; }catch{return false;} }
+function saveAutos(){ try{
+  const data={};
+  document.querySelectorAll('[data-autosave]').forEach(el=>{
+    if (el.type==='checkbox') data[el.id]=el.checked;
+    else data[el.id]=el.value;
+  });
+  localStorage.setItem(K_AUTOSAVE,JSON.stringify(data));
+}catch{}}
+function loadAutos(){ try{
+  const raw=localStorage.getItem(K_AUTOSAVE); if(!raw) return;
+  const data=JSON.parse(raw);
+  Object.entries(data).forEach(([id,val])=>{
+    const el=document.getElementById(id); if(!el) return;
+    if (el.type==='checkbox') el.checked=!!val; else el.value=val;
+  });
+}catch{}}
+
+/* Mark dirty on input changes + autosave */
+document.addEventListener('input', (e)=>{
+  const t=e.target;
+  if (t && t.id && t.hasAttribute('data-autosave')) { markDirty(t.id); saveAutos(); }
+});
+document.addEventListener('change', (e)=>{
+  const t=e.target;
+  if (t && t.id && t.hasAttribute('data-autosave')) { markDirty(t.id); saveAutos(); }
+});
+
+/* ===== Tabs ===== */
+function selectTab(name){
+  document.querySelectorAll('.tabbtn').forEach(b=>{
+    const on = b.id === `tab-${name}`;
+    b.setAttribute('aria-selected', on?'true':'false');
+  });
+  document.querySelectorAll('.tabpanel').forEach(p=>{
+    const on = p.id === `panel-${name}`;
+    p.setAttribute('aria-hidden', on?'false':'true');
+  });
+  if (name==='detox') initDetoxTab();
+  if (name==='stabilise') initStabiliseTab();
+  if (name==='symptoms') SymptomCheck.render();
+}
+function wireTabs(){
+  document.querySelectorAll('[role="tab"]').forEach(b=>{
+    b.addEventListener('click', ()=> selectTab(b.id.replace('tab-','')));
+  });
+  document.querySelectorAll('[data-tablink]').forEach(a=>{
+    a.addEventListener('click', (ev)=>{ ev.preventDefault(); selectTab(a.getAttribute('data-tablink')); });
+  });
+}
+
+/* ===== Start: services drawer ===== */
+function openServices(){
+  const d=document.getElementById('servicesDrawer');
+  d.style.display='block';
+  const list=document.getElementById('servicesList');
+  list.textContent =
+`Emergency: ${SERVICES_IE.emergency}
+Helpline: ${SERVICES_IE.helpline.name} — ${SERVICES_IE.helpline.phone}
+Info: ${SERVICES_IE.web}`;
+}
+function closeServices(e){ if (e && e.target && e.target.id!=='servicesDrawer') return; document.getElementById('servicesDrawer').style.display='none'; }
+
+/* Quick screen on Start */
+function QC_eval(){
+  const picks = {
+    often: !!document.getElementById('qc_often')?.checked,
+    night: !!document.getElementById('qc_night')?.checked,
+    wd:    !!document.getElementById('qc_withdrawal')?.checked,
+    freq:  !!document.getElementById('qc_freq')?.checked,
+    severe:!!document.getElementById('qc_severe')?.checked
+  };
+  const flags = [];
+  if (picks.often)  flags.push('Most days / hard to delay');
+  if (picks.night)  flags.push('Night dosing');
+  if (picks.wd)     flags.push('Withdrawal on delay');
+  if (picks.freq)   flags.push('≥5/day or ≤3h apart');
+  if (picks.severe) flags.push('Severe WD (confusion/paranoia/fits)');
+  let risk='mild', path='detox';
+  if (picks.severe){ risk='severe'; path='medical'; }
+  else if (picks.night || picks.freq || picks.wd){ risk='moderate'; path=(picks.night||picks.freq)?'stabilise':'detox'; }
+  const badge=(risk==='severe')?'<span class="badge bad">Risk: SEVERE — seek medical care</span>':
+             (risk==='moderate')?'<span class="badge warn">Risk: MODERATE</span>':
+             '<span class="badge good">Risk: MILD</span>';
+  document.getElementById('qc_result').innerHTML =
+    `${badge}\n<div class="mono codebox" style="margin-top:8px">${flags.length?flags.join('\n'):'—'}</div>`;
+  const st=document.getElementById('qc_status'); st.textContent='Screened'; setTimeout(()=>st.textContent='',1200);
+  try{ localStorage.setItem('gsafe_rec_path', path);}catch{}
+}
+
+/* ===== Recognise (Detailed) minimal analysis (placeholder logic) ===== */
+function SA_calcDaily(){
+  const t=parseFloat(document.getElementById('q_times_day').value||'0');
+  const u=parseFloat(document.getElementById('q_usual_ml').value||'0');
+  const est=t*u; const out=document.getElementById('q_est_daily_ml');
+  if (!isNaN(est) && est>0) { out.value=(Math.round(est*10)/10).toFixed(1); markDirty('q_est_daily_ml'); saveAutos(); }
+}
+function SA_analyse(){
+  const severe = document.getElementById('q_wd_severe').value==='yes' || document.getElementById('q_prev_complications').value==='yes';
+  const night  = document.getElementById('q_night_dose').value==='yes';
+  const gap    = parseFloat(document.getElementById('q_gap_hours').value||'0');
+  let risk='mild', rec='Short taper may be ok.';
+  if (severe) { risk='severe'; rec='Medical support strongly advised.'; }
+  else if (night || (gap>0 && gap<=2)) { risk='moderate'; rec='Stabilise first, then taper.'; }
+  const badge=(risk==='severe')?'<span class="badge bad">SEVERE</span>':(risk==='moderate')?'<span class="badge warn">MODERATE</span>':'<span class="badge good">MILD</span>';
+  document.getElementById('saSummary').innerHTML =
+    `${badge} — ${rec}\n\n<b>Why:</b> ${night?'Night dosing; ':''}${severe?'History of severe WD; ':''}${gap?('Shortest gap '+gap+'h;'):''}`;
+  const actions=document.getElementById('saActions');
+  actions.style.display='block';
+  actions.innerHTML = `
+    <button onclick="applyRecogniseToPlan()">Apply to plan</button>
+    <button class="ghost" onclick="selectTab('stabilise')">If advised, go to Stabilise</button>
+  `;
+  const nxt=document.getElementById('saNext');
+  nxt.style.display='block';
+  nxt.innerHTML = `<b>Next step:</b> ${severe?'Seek medical care.':'Move to Detox plan and preview a schedule.'}`;
+}
+function applyRecogniseToPlan(){
+  // minimal: store a suggested path
+  const text=document.getElementById('saSummary').textContent || '';
+  const path = /Stabilise/.test(text) ? 'stabilise' : (/SEVERE|medical/i.test(text)?'medical':'detox');
+  try{ localStorage.setItem('gsafe_rec_path', path); }catch{}
+  document.getElementById('saActions').innerHTML = `<span class="badge good">Applied</span> Recommendation stored for Detox tab.`;
+}
+
+/* ===== Stabilise ===== */
+function initStabiliseTab(){
+  // nothing heavy; timer is independent
+}
+function computeStabilisation(){
+  const usual = parseFloat(document.getElementById('usualDose').value||'0');
+  const minNoWD = parseFloat(document.getElementById('lowestNoWD').value||'0') || usual*0.9;
+  const prefIv = parseFloat(document.getElementById('preferredInterval').value||'2');
+  const startDose = Math.max(0.1, Math.min(usual, minNoWD));
+  const msg=`Try <b>${startDose.toFixed(1)} ml</b> every <b>${prefIv} h</b>. Hold steady for 24–48 h.`;
+  document.getElementById('stabResult').innerHTML = msg;
+  const save = { dose:startDose, interval:prefIv, when:new Date().toISOString() };
+  try{ localStorage.setItem(STAB_KEY, JSON.stringify(save)); }catch{}
+  document.getElementById('stabSaved').textContent = 'Saved as your stabilisation baseline.';
+}
+function stabLogDose(){
+  const log = JSON.parse(localStorage.getItem(STAB_LOG)||'[]');
+  log.push({t:new Date().toISOString()});
+  localStorage.setItem(STAB_LOG, JSON.stringify(log));
+  localStorage.setItem('gsafe_last_stab', new Date().toISOString());
+  drawSpark(); updateStabTimer();
+  const s=document.getElementById('stabLogStatus'); s.textContent='Logged'; setTimeout(()=>s.textContent='',1000);
+}
+function clearStabLog(){ localStorage.removeItem(STAB_LOG); drawSpark(); }
+function updateStabTimer(){
+  const span=document.getElementById('stabTimerTxt'); if(!span) return;
+  let last=null; try{ const t=localStorage.getItem('gsafe_last_stab'); if(t) last=new Date(t);}catch{}
+  if(!last){ span.textContent='—'; return; }
+  const diff=Math.floor((Date.now()-last)/1000); const mm=String(Math.floor(diff/60)).padStart(2,'0'); const ss=String(diff%60).padStart(2,'0');
+  span.textContent = `${mm}:${ss}`;
+}
+setInterval(updateStabTimer,1000);
+function drawSpark(){
+  const c=document.getElementById('doseSpark'); if(!c) return; const ctx=c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  const log=JSON.parse(localStorage.getItem(STAB_LOG)||'[]');
+  // buckets by day (last 14)
+  const days=[]; const now=new Date(); for(let i=13;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); d.setHours(0,0,0,0); days.push({d, n:0}); }
+  log.forEach(e=>{ const t=new Date(e.t); const key=t.toDateString(); days.forEach(b=>{ if(new Date(b.d).toDateString()===key) b.n++; }); });
+  const maxN = Math.max(1, ...days.map(b=>b.n));
+  const w = c.width, h=c.height, step=w/days.length;
+  ctx.strokeStyle='#60a5fa'; ctx.beginPath();
+  days.forEach((b,i)=>{
+    const x=i*step+step/2; const y=h- (b.n/maxN)*(h-8)-4;
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  document.getElementById('sparkStats').textContent = `max/day ${maxN}`;
+}
+document.addEventListener('DOMContentLoaded', drawSpark);
+
+/* ===== Detox planner ===== */
+function setDefaultStart(){
+  const el=document.getElementById('startDT'); if(!el) return;
+  if (el.value) return; // user already set
+  const now = new Date();
+  now.setMinutes(0,0,0);
+  el.value = new Date(now.getTime()+10*60*1000).toISOString().slice(0,16);
+}
+function explainDetoxType(){
+  const type = document.querySelector('input[name="detoxType"]:checked')?.value || 'short_taper';
+  const banner = document.getElementById('detoxEntryBanner');
+  const path = localStorage.getItem('gsafe_rec_path')||'';
+  banner.innerHTML = '';
+  if (path==='stabilise' && type!=='stabilise_taper'){
+    banner.innerHTML = `<span class="badge warn">Stabilisation advised</span> You can proceed, but skipping stabilisation increases risk.`;
+  } else if (path==='medical'){
+    banner.innerHTML = `<span class="badge bad">Medical support recommended</span> Consider supervised care. You can still explore planning.`;
+  } else {
+    banner.innerHTML = `<span class="badge good">Welcome</span> Adjust the plan below and preview.`;
+  }
+}
+function buildClarifyForType(){
+  const v = document.querySelector('input[name="detoxType"]:checked')?.value || '';
+  const wrap = document.getElementById('clarifyWrap');
+  const fields = document.getElementById('clarifyFields');
+  if (!wrap || !fields) return;
+  fields.innerHTML = '';
+  wrap.style.display = 'none';
+  if (v==='ultrarapid'){
+    fields.innerHTML = `
+      <label>Pattern fits “2–5 days 24/7”? 
+        <select id="clar_binge" data-autosave><option value="yes">Yes</option><option value="no">No</option></select>
+      </label>
+      <label>Support person available today? 
+        <select id="clar_support" data-autosave><option value="yes">Yes</option><option value="no">No</option></select>
+      </label>
+      <small class="muted">Ultrarapid compacts changes into ~1 day. If symptoms spike or spacing is hard, switch to Stabilise + Taper.</small>
+    `;
+    wrap.style.display='block';
+  }
+}
+
+function onDetoxTypeChange(){
+  if (ULTRARAPID_DISABLED){
+    const r = document.querySelector('input[name="detoxType"][value="ultrarapid"]');
+    if (r && r.checked){
+      r.checked = false;
+      alert('Ultrarapid detox is currently disabled');
+    }
+  }
+  explainDetoxType(); buildClarifyForType(); renderDetoxSafety(); previewDetox();
+}
+function renderDetoxSafety(){
+  const type=document.querySelector('input[name="detoxType"]:checked')?.value || 'short_taper';
+  const msg=document.getElementById('planMsg');
+  let extra='';
+  const decEverySel = document.getElementById('decrementEvery')?.value || '24h';
+const h = parseDecEveryToHours(decEverySel);
+if (h < 12 || type==='ultrarapid'){
+  const stepTxt = (h===1?'every 1 hour':`every ${h} hours`);
+  extra = `<div class="feedback" style="margin-top:8px"><b>Ultrarapid detox:</b> dose reductions ${stepTxt}. Have support, fluids, and rest.<br>If symptoms spike, <u>stop</u> and switch to Stabilise + Taper.</div>`;
+}
+  msg.innerHTML = extra || '';
+}
+function parseDecEveryToHours(code){
+  if (!code) return 24;
+  const m = String(code).match(/^(\d+)\s*h$/i);
+  if (m) return Math.max(1, parseInt(m[1],10));
+  // Fallback for legacy '12h','24h','48h'
+  if (code==='12h') return 12;
+  if (code==='24h') return 24;
+  if (code==='48h') return 48;
+  return 24;
+}
+
+function autoSwitchUltrarapidIfNeeded(){
+  const sel = document.getElementById('decrementEvery');
+  if (!sel) return;
+  const hours = parseDecEveryToHours(sel.value);
+  const ultraNeeded = hours < 12;
+  const ultraRadio = document.querySelector('input[name="detoxType"][value="ultrarapid"]');
+  if (ultraNeeded && ultraRadio && !ultraRadio.checked){
+    if (!ULTRARAPID_DISABLED){
+      ultraRadio.checked = true;
+      buildClarifyForType();
+      explainDetoxType();
+    } else {
+      // If ultrarapid is disabled, nudge back to a safe interval
+      if (hours < 12) { sel.value = '12h'; }
+      alert('Ultrarapid detox is disabled in this build. Minimum allowed reduction interval is every 12 hours.');
+    }
+  }
+}
+
+function buildPlanSteps(startDoseMl, decMl, decEveryCode, startDT){
+  const hours = parseDecEveryToHours(decEveryCode);
+  const stepMs = hours * 3600e3;
+  const steps = [];
+  let ml = Math.max(0, Math.round(startDoseMl*10)/10);
+  let t = new Date(startDT);
+  const capMs = (hours <= 2) ? 30 * 3600e3 : Infinity; // ~1 day cap for ultrarapid
+  const t0=t.getTime();
+  while (ml > 0){
+    if ((t.getTime() - t0) >= capMs) break;
+    const end = new Date(t.getTime() + stepMs);
+    steps.push({ start: new Date(t), end, ml });
+    ml = Math.round((ml - decMl) * 10) / 10;
+    if (ml < 0) ml = 0;
+    t = end;
+  }
+  steps.push({ start: new Date(t), end: new Date(t), ml: 0 });
+  return steps;
+}
+function calcVolumes(steps, intervalHours){
+  let totalMax=0, totalPred=0;
+  for (let i=0;i<steps.length-1;i++){
+    const s=steps[i];
+    const durH=(s.end - s.start)/3600e3;
+    const maxD = Math.ceil(durH / 1);
+    const predD= Math.ceil(durH / Math.max(0.25, intervalHours));
+    totalMax  += maxD  * s.ml;
+    totalPred += predD * s.ml;
+  }
+  return { totalMax, totalPred };
+}
+function previewDetox(){
+  const dose = parseFloat(document.getElementById('startDose').value||'0');
+  const intervalH = parseFloat(document.getElementById('intervalHours').value||'0');
+  const decMl = parseFloat(document.getElementById('decrementMl').value||'0.1');
+  let decEverySel = document.getElementById('decrementEvery').value;
+const type = document.querySelector('input[name="detoxType"]:checked')?.value || 'short_taper';
+  const startDT = new Date(document.getElementById('startDT').value || Date.now());
+  if (!dose || !intervalH) { document.getElementById('scheduleSummary').textContent=''; return; }
+
+  const steps = buildPlanSteps(dose, decMl, decEverySel, startDT);
+  window._plan = { steps, intervalH };
+
+  const { totalMax, totalPred } = calcVolumes(steps, intervalH);
+  const decHours = parseDecEveryToHours(decEverySel);
+
+  const lines=[];
+  lines.push(`<b>Start:</b> ${new Date(steps[0].start).toLocaleString()}`);
+  lines.push(`<b>Starting dose:</b> ${dose.toFixed(1)} ml every ${intervalH} h`);
+  lines.push(`<b>Decrement:</b> –${decMl.toFixed(1)} ml every ${decHours} h`);
+  lines.push(`<b>Estimate for supply needed if dosing hourly:</b> ${totalMax.toFixed(1)} ml`);
+  lines.push(`<b>Estimate of supply needed if dosing as per dose interval in plan:</b> ${totalPred.toFixed(1)} ml`);
+
+  // Guardrails
+  const alerts=[];
+const isUltraByHours = decHours < 12;
+
+if (!isUltraByHours){
+  // standard guardrails
+  const perDayFromMl = (decHours===12)? decMl*2 : (decHours===24)? decMl : decMl/2;
+  if (perDayFromMl > 0.2) alerts.push('Decrement rate > 0.2 ml/day — consider smaller step or longer interval.');
+  if (dose>0){
+    const equiv48 = decMl * (48/decHours);
+    const pct48 = (equiv48 / dose);
+    if (pct48 > 0.20) alerts.push(`Faster than ~20% every 48 h (current ~${Math.round(pct48*100)}%).`);
+  }
+} else {
+  alerts.push('Ultrarapid: frequent reductions (<12 h). Have support today. Stop and switch to Stabilise if symptoms spike.');
+  if (decHours<=1 && decMl>0.2) alerts.push('Every 1h with ≥0.3 ml steps is very aggressive; consider ≤0.2 ml per step.');
+  if (decHours===2 && decMl>0.3) alerts.push('Every 2h with ≥0.4 ml steps is very aggressive; consider ≤0.3 ml per step.');
+}
+
+
+  document.getElementById('planMsg').textContent = alerts.length?('⚠️ '+alerts.join(' ')):'Preview ready';
+  document.getElementById('scheduleSummary').innerHTML = lines.join('<br>');
+  document.getElementById('supplySummary').textContent = estimateSupply();
+}
+function estimateSupply(){
+  const avail = parseFloat(document.getElementById('availableMl').value || '0');
+  const dose = parseFloat(document.getElementById('startDose').value || '0');
+  const intervalH = parseFloat(document.getElementById('intervalHours').value || '0');
+  const decMl = parseFloat(document.getElementById('decrementMl').value || '0.1');
+  let decEverySel = document.getElementById('decrementEvery').value || '24h';
+  const startDT = new Date(document.getElementById('startDT').value || Date.now());
+// always use decrementEvery directly (no separate ultrarapid interval control anymore)
+  if (!dose || !intervalH) return '';
+  const steps = (window._plan && window._plan.steps) || buildPlanSteps(dose, decMl, decEverySel, startDT);
+  const { totalPred } = calcVolumes(steps, intervalH);
+  if (totalPred === 0) return '';
+  const planDays = Math.max(0.1, (steps[steps.length-1].start - startDT) / 86400000);
+  const ratio = Math.max(0, Math.min(1, avail / totalPred));
+  const days = planDays * ratio;
+  return `Supply ≈ ${days.toFixed(1)} days of this plan (predicted use)`;
+}
+
+/* ===== Detox calendar (time grid) ===== */
+
+function startOfWeek(d){
+  const a = new Date(d); // clone
+  const day = (a.getDay()+6)%7; // Mon=0..Sun=6
+  a.setHours(0,0,0,0);
+  a.setDate(a.getDate() - day);
+  return a;
+}
+function weekKey(d){
+  const s = startOfWeek(d);
+  return `${s.getFullYear()}-${String(s.getMonth()+1).padStart(2,'0')}-${String(s.getDate()).padStart(2,'0')}`;
+}
+
+function getActivePlanDose(){
+  if (!window._plan || !window._plan.steps) return null;
+  const now=new Date();
+  let active=window._plan.steps[0];
+  for (let i=0;i<window._plan.steps.length;i++){
+    if (window._plan.steps[i].start <= now) active=window._plan.steps[i]; else break;
+  }
+  return (active && active.ml>0) ? active.ml : window._plan.steps[0].ml;
+}
+function getPlanDoseAt(dt){
+  if (!window._plan || !window._plan.steps) return null;
+  const t= (dt instanceof Date) ? dt : new Date(dt);
+  for (let i=0;i<window._plan.steps.length-1;i++){
+    const s=window._plan.steps[i], n=window._plan.steps[i+1];
+    if (s.start <= t && t < n.start) return s.ml;
+  }
+  const last=window._plan.steps[window._plan.steps.length-1];
+  return last?.ml ?? null;
+}
+
+function createDetoxSchedule(){
+  if (!window._plan || !window._plan.steps) { previewDetox(); }
+  const { steps, intervalH } = window._plan || {};
+  if (!steps || steps.length < 2) return;
+
+  const wrap = document.getElementById('calendarWrap');
+  const grid = document.getElementById('detoxCal');
+  const curInfo = document.getElementById('currentDoseInfo');
+  wrap.style.display = 'block';
+  grid.innerHTML = '';
+
+  const first = new Date(steps[0].start);
+  const final = new Date(steps[steps.length-1].start);
+
+  // controls
+  const headerFlex = document.querySelector('#calendarWrap .flex .row:last-child');
+  if (headerFlex && !document.getElementById('limit14')) {
+    const label = document.createElement('label');
+    label.className = 'pill';
+    label.style.cursor = 'pointer';
+    label.innerHTML = `<input type="checkbox" id="limit14" style="margin-right:6px"> 14-day view`;
+    headerFlex.appendChild(label);
+    label.addEventListener('change', ()=>createDetoxSchedule());
+  }
+  if (F_CALENDAR_ZOOM && headerFlex && !document.getElementById('calZoom')){
+    const z = document.createElement('label');
+    z.className = 'pill'; z.style.marginLeft='8px';
+    z.innerHTML = `Hour height <input id="calZoom" type="range" min="20" max="48" step="2" value="${CAL_INITIAL_HOUR_PX}" style="vertical-align:middle;margin-left:6px">`;
+    headerFlex.appendChild(z);
+    z.addEventListener('input', (ev)=>{
+  window.__CAL_HPX = parseInt(ev.target.value,10) || CAL_INITIAL_HOUR_PX;
+  document.documentElement.style.setProperty('--hourpx', window.__CAL_HPX + 'px');
+  
+  createDetoxSchedule();
+});
+  }
+  const limit14 = document.getElementById('limit14')?.checked;
+
+  // window
+  let startWindow = new Date(first), endWindow = new Date(final);
+  if (limit14) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    startWindow = today < first ? first : today;
+    endWindow = new Date(startWindow); endWindow.setDate(endWindow.getDate()+13);
+    if (endWindow > final) endWindow = final;
+  }
+
+  // map day -> segments
+  const byDay = {}; const keyFor = (d)=> d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+  for (let i=0;i<steps.length-1;i++){
+    const s=steps[i]; const startS=new Date(s.start), endS=new Date(s.end);
+    let d = new Date(startS); d.setHours(0,0,0,0);
+    while (d < endS){
+      const nextDay=new Date(d); nextDay.setDate(d.getDate()+1);
+      const segStart=new Date(Math.max(d, startS));
+      const segEnd=new Date(Math.min(nextDay, endS));
+      const k=keyFor(d); (byDay[k] ||= []).push({from:segStart, to:segEnd, ml:s.ml});
+      d = nextDay;
+    }
+  }
+
+  const HOUR_PX = (window.__CAL_HPX || CAL_INITIAL_HOUR_PX);
+  document.documentElement.style.setProperty('--hourpx', HOUR_PX + 'px');
+  let cursor = new Date(startWindow); cursor.setHours(0,0,0,0);
+  while (cursor <= endWindow){
+    const k = keyFor(cursor);
+    const periods = byDay[k] || [];
+    if (periods.length){
+      const cell = document.createElement('div');
+      cell.className='day';
+      cell.innerHTML = `<h4>${cursor.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</h4>`;
+
+      const dayGrid = document.createElement('div');
+      dayGrid.className = 'dayGrid';
+
+      const timeCol = document.createElement('div');
+      timeCol.className = 'timecol';
+      for (let h=0; h<24; h++){
+        const tick = document.createElement('div');
+        tick.className='tick';
+        tick.textContent = (h % 2 === 0) ? String(h).padStart(2,'0') + ':00' : '';
+        timeCol.appendChild(tick);
+      }
+      const body = document.createElement('div');
+      body.className='daybody';
+      body.style.height = (24*HOUR_PX)+'px';
+      body.style.position='relative';
+
+      const startOfDay = new Date(cursor); startOfDay.setHours(0,0,0,0);
+      const yPx = (dt)=> ((dt - startOfDay)/60000) * (HOUR_PX/60);
+
+      periods.forEach(p=>{
+        const top = Math.max(0, Math.floor(yPx(p.from)));
+        const bottom = Math.min(24*HOUR_PX, Math.ceil(yPx(p.to)));
+        const height = Math.max(4, bottom-top);
+        const seg = document.createElement('div');
+        seg.className='segBlock';
+        seg.style.top = top+'px';
+        seg.style.height = height+'px';
+        seg.textContent = `${p.ml.toFixed(1)} ml every ${intervalH} h`;
+        body.appendChild(seg);
+      });
+
+      const today = new Date();
+      if (today.toDateString() === cursor.toDateString()){
+        const nowline=document.createElement('div');
+        nowline.className='nowline';
+        nowline.style.top = Math.max(0, Math.min(24*HOUR_PX, Math.floor(yPx(today)))) + 'px';
+        body.appendChild(nowline);
+      }
+
+      const lg = loadDoseLog().filter(e => new Date(e.t).toDateString() === cursor.toDateString());
+      lg.forEach(e=>{
+        const t=new Date(e.t);
+        const mark=document.createElement('div');
+        mark.className='doseMark';
+        mark.style.top = Math.max(0, Math.min(24*HOUR_PX, Math.floor(yPx(t)))) + 'px';
+        const planMl = getPlanDoseAt(t) ?? (periods[0]?.ml || 0);
+        const mlVal = (typeof e.ml==='number' ? e.ml : planMl);
+        const delta = Math.abs((mlVal||0)-(planMl||0));
+        const cls = (delta < 0.05) ? 'green' : (delta <= 0.11) ? 'orange' : 'red';
+        mark.classList.add(cls);
+        mark.title = `${t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}${(e.ml? ' — '+e.ml.toFixed(1)+' ml' : '')}`;
+        body.appendChild(mark);
+      });
+
+      dayGrid.appendChild(timeCol); dayGrid.appendChild(body); cell.appendChild(dayGrid);
+
+      if (lg.length){
+        const dl=document.createElement('div'); dl.className='doseLog';
+        dl.textContent = 'Doses:\n' + lg.map(e=>{
+          const time=new Date(e.t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+          const ml=(typeof e.ml==='number' && e.ml>0)?` — ${e.ml.toFixed(1)} ml`:''; return time+ml;
+        }).join('\n');
+        cell.appendChild(dl);
+      }
+      grid.appendChild(cell);
+    }
+    cursor.setDate(cursor.getDate()+1);
+  }
+
+  // header badge
+  const now = new Date();
+  let activeStep = steps[0];
+  for (let i=0;i<steps.length;i++){ if (steps[i].start <= now) activeStep=steps[i]; else break; }
+  const curMl = (activeStep && activeStep.ml>0) ? activeStep.ml : steps[0].ml;
+  curInfo.textContent = `Currently: ${curMl.toFixed(1)} ml every ${intervalH} h`;
+
+  // ----- Build PRINT view: group periods by week, 7 days per page -----
+  try {
+    const printCal = document.getElementById('printCal');
+    if (printCal){
+      printCal.innerHTML = '';
+
+      // Collect days with periods
+      const HOUR_PX = (window.__CAL_HPX || CAL_INITIAL_HOUR_PX);
+      const days = [];
+      const byDay = {}; // reuse map we created above (scope-local), so rebuild quickly:
+      const tmpByDay = {};
+      for (let i=0;i<steps.length-1;i++){
+        const s=steps[i]; const startS=new Date(s.start), endS=new Date(s.end);
+        let d = new Date(startS); d.setHours(0,0,0,0);
+        while (d < endS){
+          const nd = new Date(d); nd.setHours(0,0,0,0);
+          const nextDay=new Date(nd); nextDay.setDate(nd.getDate()+1);
+          const segStart=new Date(Math.max(nd, startS));
+          const segEnd=new Date(Math.min(nextDay, endS));
+          const k=nd.toDateString();
+          (tmpByDay[k] ||= []).push({from:segStart, to:segEnd, ml:s.ml});
+          d = nextDay;
+        }
+      }
+      Object.keys(tmpByDay).forEach(k=>{
+        days.push(new Date(k));
+      });
+      days.sort((a,b)=>a-b);
+
+      // Group by week key
+      const weeks = {};
+      days.forEach(d=>{
+        const k = weekKey(d);
+        (weeks[k] ||= []).push(new Date(d));
+      });
+
+      // Render each week page
+      Object.entries(weeks).forEach(([wk, dayList])=>{
+        // Ensure all 7 consecutive days exist
+        const start = startOfWeek(dayList[0]);
+        const full7 = Array.from({length:7}, (_,i)=>{ const dd=new Date(start); dd.setDate(start.getDate()+i); return dd; });
+
+        const page = document.createElement('section');
+        page.className = 'weekPrint';
+
+        // Title
+        const title = document.createElement('h2');
+        const endW = new Date(start); endW.setDate(start.getDate()+6);
+        title.textContent = `Week of ${start.toLocaleDateString()} – ${endW.toLocaleDateString()}`;
+        page.appendChild(title);
+
+        // 7-day block in one row
+        const row = document.createElement('div');
+        row.style.display='grid';
+        row.style.gridTemplateColumns='repeat(7,1fr)';
+        row.style.gap='8px';
+
+        const hourPx = 24 * (window.__CAL_HPX || CAL_INITIAL_HOUR_PX);
+        const yPx = (base, dt)=> ((dt - base)/60000) * ((window.__CAL_HPX || CAL_INITIAL_HOUR_PX)/60);
+
+        full7.forEach(day=>{
+          const cell = document.createElement('div');
+          cell.className='day';
+          cell.innerHTML = `<h4>${day.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</h4>`;
+          const dayGrid = document.createElement('div');
+          dayGrid.className='dayGrid';
+
+          // Left ticks
+          const timeCol = document.createElement('div'); timeCol.className='timecol';
+          for (let h=0; h<24; h++){
+            const tick = document.createElement('div'); tick.className='tick';
+            tick.textContent = (h % 2 === 0) ? String(h).padStart(2,'0') + ':00' : '';
+            timeCol.appendChild(tick);
+          }
+
+          // Body
+          const body = document.createElement('div');
+          body.className='daybody';
+          body.style.height = hourPx + 'px';
+          body.style.position='relative';
+
+          const k = day.toDateString();
+          const periods = tmpByDay[k] || [];
+          const startOfDay = new Date(day); startOfDay.setHours(0,0,0,0);
+
+          periods.forEach(p=>{
+            const top = Math.max(0, Math.floor(yPx(startOfDay, p.from)));
+            const bottom = Math.min(hourPx, Math.ceil(yPx(startOfDay, p.to)));
+            const height = Math.max(4, bottom-top);
+            const seg = document.createElement('div');
+            seg.className='segBlock';
+            seg.style.top = top+'px';
+            seg.style.height = height+'px';
+            seg.textContent = `${p.ml.toFixed(1)} ml every ${intervalH} h`;
+            body.appendChild(seg);
+          });
+
+          // Logged doses for that day
+          const lg = loadDoseLog().filter(e => new Date(e.t).toDateString() === day.toDateString());
+          lg.forEach(e=>{
+            const t=new Date(e.t);
+            const mark=document.createElement('div');
+            mark.className='doseMark green';
+            mark.style.top = Math.max(0, Math.min(hourPx, Math.floor(yPx(startOfDay, t)))) + 'px';
+            body.appendChild(mark);
+          });
+
+          dayGrid.appendChild(timeCol); dayGrid.appendChild(body); cell.appendChild(dayGrid);
+          row.appendChild(cell);
+        });
+
+        page.appendChild(row);
+        printCal.appendChild(page);
+      });
+
+      // Build cover summary text
+      const sum = document.getElementById('printSummary');
+      if (sum && window._plan?.steps?.length){
+        const steps = window._plan.steps;
+        const first = steps[0].start;
+        const last  = steps[steps.length-1].start;
+        const dose = parseFloat(document.getElementById('startDose').value||'0');
+        const intervalH = parseFloat(document.getElementById('intervalHours').value||'0');
+        const decMl = parseFloat(document.getElementById('decrementMl').value||'0.1');
+        const decHours = parseDecEveryToHours(document.getElementById('decrementEvery').value);
+        const { totalMax, totalPred } = calcVolumes(steps, intervalH);
+        sum.textContent =
+`Start: ${new Date(first).toLocaleString()}
+Starting dose: ${dose.toFixed(1)} ml every ${intervalH} h
+Reduction: –${decMl.toFixed(1)} ml every ${decHours} h
+Plan length: ~${Math.max(1, Math.round((new Date(last)-new Date(first))/86400000)+1)} days
+Supply estimate (hourly): ${totalMax.toFixed(1)} ml
+Supply estimate (plan interval): ${totalPred.toFixed(1)} ml`;
+      }
+    }
+  } catch (e) { /* silent for print */ }
+
+
+  updateDetoxTimer(); updateNowClock();
+}
+
+/* ===== Dose logging & picker ===== */
+function loadDoseLog(){ try{ return JSON.parse(localStorage.getItem(DOSE_LOG_KEY)||'[]'); }catch{return [];} }
+function logDose(ml){
+  const now=new Date();
+  const lg=loadDoseLog(); lg.push({t:now.toISOString(), ml:(typeof ml==='number' && ml>0)?Math.round(ml*10)/10:undefined});
+  localStorage.setItem(DOSE_LOG_KEY, JSON.stringify(lg));
+  localStorage.setItem('gsafe_last_dose', now.toISOString());
+  updateDetoxTimer(); createDetoxSchedule();
+}
+function logDoseNow(){
+  const ml = getActivePlanDose() || parseFloat(document.getElementById('startDose').value||'0') || 0;
+  logDose(ml);
+}
+function openDosePicker(){
+  const base = getActivePlanDose() || parseFloat(document.getElementById('startDose').value||'0') || 0;
+  const grid = document.getElementById('dosePickerGrid'); const hint=document.getElementById('dosePickerHint');
+  grid.innerHTML=''; hint.textContent = `Recommended dose is ${base.toFixed(1)} ml. Choose a different amount (±0.4 ml).`;
+  const opts=[]; for (let d=-0.4; d<=0.4+1e-9; d+=0.1){ const ml=Math.max(0.1, Math.round((base+d)*10)/10); opts.push(ml); }
+  const uniq=[...new Set(opts)].sort((a,b)=>a-b);
+  uniq.forEach(ml=>{
+    const delta=Math.round((ml-base)*10)/10; if (Math.abs(delta)>0.4+1e-9) return;
+    let cls='green'; if (Math.abs(delta)===0.1) cls='orange'; if (Math.abs(delta)>=0.2) cls='red';
+    const b=document.createElement('button'); b.textContent=`${ml.toFixed(1)} ml`; b.className=`btn-timer ${cls}`;
+    b.style.textAlign='center'; b.onclick=()=>{ chooseDose(ml); };
+    grid.appendChild(b);
+  });
+  document.getElementById('dosePicker').style.display='block';
+}
+function closeDosePicker(e){ if(e && e.target && e.target.id!=='dosePicker') return; document.getElementById('dosePicker').style.display='none'; }
+function chooseDose(ml){ logDose(ml); closeDosePicker(); }
+
+/* ===== Timers ===== */
+function updateDetoxTimer(){
+  const span=document.getElementById('timerTxt'), btn=document.getElementById('doseBtn'), txt=document.getElementById('doseBtnText');
+  if(!span||!btn||!txt) return;
+  let last=null; try{ const t=localStorage.getItem('gsafe_last_dose'); if(t) last=new Date(t);}catch{}
+  const now=new Date(); let secs= last? Math.floor((now-last)/1000) : null;
+  if (secs==null) span.textContent='—'; else { const mm=String(Math.floor(secs/60)).padStart(2,'0'); const ss=String(secs%60).padStart(2,'0'); span.textContent=`${mm}:${ss}`; }
+  const interval=parseFloat(document.getElementById('intervalHours').value||'2');
+  btn.classList.remove('red','orange','green');
+  if (secs==null) btn.classList.add('green');
+  else if (secs<3600) btn.classList.add('red');
+  else if (secs<(interval*3600)) btn.classList.add('orange'); else btn.classList.add('green');
+  const curMl=getActivePlanDose(); txt.textContent = (typeof curMl==='number' && curMl>0)?`Log ${curMl.toFixed(1)} ml`:'Log a dose';
+}
+setInterval(updateDetoxTimer, 1000);
+function updateNowClock(){
+  const el=document.getElementById('nowClock'); if(!el) return;
+  const now=new Date();
+  el.textContent = now.toLocaleString([], {weekday:'short', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+}
+setInterval(updateNowClock, 1000);
+document.addEventListener('DOMContentLoaded', updateNowClock);
+
+/* ===== Export ===== */
+function downloadICS(){
+  if (!window._plan || !window._plan.steps){ previewDetox(); }
+  const { steps, intervalH } = window._plan || {};
+  let cal="BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//GSafe Detox//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n";
+  if (steps && steps.length){
+    const dt = steps[0].start; const DTSTART = dt.toISOString().replace(/[-:]/g,'').split('.')[0]+"Z";
+    cal+=`BEGIN:VEVENT\r\nUID:gsafe-start-${Date.now()}@gsafe\r\nSUMMARY:Start G-Safe detox\r\nDTSTART:${DTSTART}\r\nDESCRIPTION:Start interval every ${intervalH}h\r\nEND:VEVENT\r\n`;
+    for (let i=1;i<steps.length;i++){
+      const s=steps[i]; const DS=s.start.toISOString().replace(/[-:]/g,'').split('.')[0]+"Z";
+      const title = s.ml>0 ? `Reduce to ${s.ml.toFixed(1)} ml` : 'Detox complete';
+      cal+=`BEGIN:VEVENT\r\nUID:gsafe-step-${i}-${Date.now()}@gsafe\r\nSUMMARY:${title}\r\nDTSTART:${DS}\r\nEND:VEVENT\r\n`;
+    }
+  }
+  cal+="END:VCALENDAR";
+  const blob=new Blob([cal],{type:'text/calendar'}); const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='gsafe_detox.ics'; a.click(); URL.revokeObjectURL(url);
+}
+function exportPDF(){
+  const cover = document.getElementById('printCover');
+  const pcal  = document.getElementById('printCal');
+  const main  = document.querySelector('.tabs');
+
+  // Ensure latest data rendered
+  if (!window._plan || !window._plan.steps) previewDetox();
+  createDetoxSchedule(); // (re)builds weekly print + summary
+
+  // Show print-only blocks
+  if (cover) cover.style.display='block';
+  if (pcal)  pcal.style.display='block';
+  if (main)  main.style.display='block'; // UI will be hidden by @media print
+
+  const hidePrintViews = ()=>{
+    if (cover) cover.style.display='none';
+    if (pcal)  pcal.style.display='none';
+  };
+
+  // Best effort: hide after print
+  const onAfter = ()=>{ hidePrintViews(); window.removeEventListener('afterprint', onAfter); };
+  window.addEventListener('afterprint', onAfter);
+
+  // Safari fallback (afterprint can be flaky)
+  setTimeout(hidePrintViews, 0);
+
+  window.print();
+}
+
+/* ===== Symptoms ===== */
+const SymptomCheck={
+  updateLabel:(el)=>{ const slot=document.querySelector(`.sc-val[data-for="${el.name}"]`); if(slot) slot.textContent=el.value; },
+  submit:()=>{
+    const form=document.getElementById('symptomForm'); const data={t:new Date().toISOString()};
+    new FormData(form).forEach((v,k)=>{ data[k]=v; });
+    const arr=JSON.parse(localStorage.getItem(SYMPTOM_KEY)||'[]'); arr.push(data);
+    localStorage.setItem(SYMPTOM_KEY,JSON.stringify(arr));
+    document.getElementById('scStatus').textContent='Saved'; setTimeout(()=>document.getElementById('scStatus').textContent='',1200);
+    SymptomCheck.render();
+  },
+  render:()=>{
+    const arr=JSON.parse(localStorage.getItem(SYMPTOM_KEY)||'[]'); const lines=[];
+    arr.slice(-10).forEach(r=>{ lines.push(`${new Date(r.t).toLocaleString()} — tremor:${r.tremor||0} anx:${r.anxiety||0}`); });
+    document.getElementById('scTable').textContent=lines.join('\n');
+  },
+  exportJSON:()=>{
+    const arr=localStorage.getItem(SYMPTOM_KEY)||'[]';
+    const blob=new Blob([arr],{type:'application/json'}); const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download='gsafe_symptoms.json'; a.click(); URL.revokeObjectURL(url);
+  }
+};
+
+/* ===== Init ===== */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const v=document.getElementById('appVersion'); if(v) v.textContent=APP_VERSION;
+  loadAutos(); wireTabs(); setDefaultStart();
+
+  // Migrate legacy 'bedtime' recommendation to 'detox'
+  try {
+    const oldPath = localStorage.getItem('gsafe_rec_path');
+    if (oldPath === 'bedtime') localStorage.setItem('gsafe_rec_path', 'detox');
+  } catch {}
+
+  // Inline services preview
+  const span=document.getElementById('servicesInline');
+  if(span){ span.textContent = `Emergency: ${SERVICES_IE.emergency}\nHelpline: ${SERVICES_IE.helpline.name} — ${SERVICES_IE.helpline.phone}`; }
+});
+  
+/* ===== Keyboard shortcuts (v3) ===== */
+document.addEventListener('keydown', (e)=>{
+  if (!F_A11Y_SHORTCUTS) return;
+  if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;
+  if (e.key==='l' || e.key==='L'){ // log dose
+    const onDetox = document.getElementById('panel-detox')?.getAttribute('aria-hidden')==='false';
+    if (onDetox){ e.preventDefault(); logDoseNow(); }
+  }
+  if (e.key==='s' || e.key==='S'){ e.preventDefault(); selectTab('symptoms'); }
+});
+
+/* ===== Tech notes ===== */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const tech=document.getElementById('techNotes'); if(!tech) return;
+  tech.textContent =
+`Dose interval guard:
+- Timer colours: <60 min RED; <planned interval ORANGE; otherwise GREEN.
+
+Decrement guardrails:
+- Max ≈ 0.2 ml/day (by per-step interval) OR ≤20% every ~48h.
+
+Supply estimates (per decrement step):
+- Hourly estimate = hourly doses × ml.
+- Plan-interval estimate = doses at your chosen interval × ml.
+
+Calendar:
+- Only detox days rendered.
+- Left time column, segments scaled to time.
+- Today line shows “now”.
+- Logged doses shown as coloured lines (green/orange/red).`;
+});
+
+/* ===== Detox tab init ===== */
+function initDetoxTab(){
+  // Defensive guard for legacy 'bedtime' path
+  try {
+    if (localStorage.getItem('gsafe_rec_path') === 'bedtime') {
+      localStorage.setItem('gsafe_rec_path', 'detox');
+    }
+  } catch {}
+  const setIfEmpty=(id,val)=>{ const el=document.getElementById(id); if(!el) return; const empty=(el.type==='number') ? (el.value===''||isNaN(parseFloat(el.value))) : (!el.value); if (empty && !isDirty(id)) el.value=String(val); };
+  setDefaultStart();
+  let stabilised=null, path=''; try{ stabilised=JSON.parse(localStorage.getItem(STAB_KEY)||'null'); }catch{} try{ path=localStorage.getItem('gsafe_rec_path')||''; }catch{}
+const typeDefault = (path === 'stabilise') ? 'stabilise_taper' : 'short_taper';
+  if (!document.querySelector('input[name="detoxType"]:checked')){
+    const radio=document.querySelector(`input[name="detoxType"][value="${typeDefault}"]`); if(radio) radio.checked=true;
+  }
+  document.querySelectorAll('input[name="detoxType"]').forEach(r=>{
+    if (!r.dataset._wired){
+      r.dataset._wired='1';
+      r.addEventListener('change', onDetoxTypeChange);
+    }
+  });
+  const banner=document.getElementById('detoxEntryBanner');
+  if (stabilised && stabilised.dose && stabilised.interval){
+    banner.innerHTML = `<span class="badge good">Nice progress</span> You’re stabilised at <b>${stabilised.dose.toFixed(1)} ml</b> every <b>${stabilised.interval} h</b>. We’ll use this as your start.`;
+    setIfEmpty('startDose', stabilised.dose.toFixed(1));
+    setIfEmpty('intervalHours', stabilised.interval);
+  } else {
+    const guessDose = parseFloat(document.getElementById('q_usual_ml')?.value||'0') || 2.0;
+    const gap = parseFloat(document.getElementById('q_gap_hours')?.value||'0');
+    const interval = (gap>=3)?3 : (gap>=2)?2 : (gap>=1.5)?1.5 : 1;
+    if (path==='stabilise'){
+      banner.innerHTML = `<span class="badge warn">Heads up</span> Stabilisation was recommended. You can proceed, but <b>skipping stabilisation increases risk</b>.`;
+    } else {
+      banner.innerHTML = `<span class="badge good">Great work</span> We’ve prefilled a starting dose/interval from earlier answers. Adjust below if needed.`;
+    }
+    setIfEmpty('startDose', guessDose.toFixed(1));
+    setIfEmpty('intervalHours', interval);
+  }
+  explainDetoxType(); buildClarifyForType(); renderDetoxSafety();
+  // live supply/preview
+ ['availableMl','startDose','intervalHours','decrementMl','decrementEvery','startDT'].forEach(id=>{
+  const el=document.getElementById(id); if(!el||el.dataset._wired) return;
+  el.dataset._wired='1';
+  el.addEventListener('input', ()=>{ previewDetox(); document.getElementById('supplySummary').textContent=estimateSupply(); });
+  el.addEventListener('change', ()=>{ previewDetox(); document.getElementById('supplySummary').textContent=estimateSupply(); });
+  if (id==='decrementEvery'){
+    el.addEventListener('input', autoSwitchUltrarapidIfNeeded);
+    el.addEventListener('change', autoSwitchUltrarapidIfNeeded);
+  }
+});
+autoSwitchUltrarapidIfNeeded();
+  previewDetox();
+}
+
+/* ===== PWA stub (disabled by default) ===== */
+if (F_PWA_SCAFFOLD && 'serviceWorker' in navigator){
+  window.addEventListener('load', ()=> navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
